@@ -49,7 +49,8 @@ function DoctorMain() {
           *,
           vitals (*),
           prescriptions (*),
-          lab_reports (*)
+          lab_reports (*),
+          doctors (name)
         `);
 
       if (patientsError) throw patientsError;
@@ -63,7 +64,7 @@ function DoctorMain() {
         age: p.age,
         gender: p.gender as any,
         contact: p.contact || '',
-        assignedDoctor: 'Dr. Priya Sharma',
+        assignedDoctor: (p.doctors as any)?.name || 'Unassigned',
         admissionDate: p.admission_date,
         status: p.status as any,
         symptoms: p.symptoms || [],

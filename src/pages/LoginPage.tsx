@@ -33,12 +33,12 @@ export default function LoginPage() {
     if (!selectedRole) return;
 
     if (isRealAuth) {
-      if (!email || !password) {
-        toast.error('Please enter email and password');
+      if (!loginId || !password) {
+        toast.error(`Please enter your ${activeRole?.idLabel || 'ID'} and password`);
         return;
       }
       setLoading(true);
-      const success = await login(email, password, selectedRole);
+      const success = await login(loginId, password, selectedRole);
       setLoading(false);
       if (success) navigate(`/${selectedRole}`);
     } else {
@@ -144,10 +144,10 @@ export default function LoginPage() {
 
                 <div className="flex rounded-lg bg-muted p-1 mb-6">
                   <button onClick={() => setIsRealAuth(false)} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${!isRealAuth ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                    Demo Login (ID)
+                    Demo (No Password)
                   </button>
                   <button onClick={() => setIsRealAuth(true)} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${isRealAuth ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                    Real Login (SaaS)
+                    Real Login (With Password)
                   </button>
                 </div>
 
@@ -155,8 +155,13 @@ export default function LoginPage() {
                   {isRealAuth ? (
                     <>
                       <div>
-                        <Label>Email Address</Label>
-                        <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@hospital.com" className="mt-1.5" />
+                        <Label>{activeRole?.idLabel} / Email</Label>
+                        <Input
+                          value={loginId}
+                          onChange={e => setLoginId(e.target.value)}
+                          placeholder={activeRole?.idPlaceholder}
+                          className="mt-1.5"
+                        />
                       </div>
                       <div>
                         <Label>Password</Label>

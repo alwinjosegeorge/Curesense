@@ -68,14 +68,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
+  const login = async (identifier: string, password: string, role: UserRole): Promise<boolean> => {
     setLoading(true);
     try {
+      let email = identifier;
+
+      // If it's an ID (like DOC001 or ADM001) rather than an email, look up the real email
+      if (!identifier.includes('@')) {
+        const { data: profile, error: lookupError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id_number', identifier)
+          .single();
+
+        if (lookupError || !profile?.email) {
+          throw new Error('Invalid ID or account not found.');
+        }
+        email = profile.email;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
       // Verify role matches
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', data.user.id).single();
       if (profile?.role !== role) {
         await supabase.auth.signOut();
         toast.error(`Account found, but it is not a ${role} account.`);

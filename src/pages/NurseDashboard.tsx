@@ -31,7 +31,7 @@ function NurseMain() {
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('*');
+        .select('*, doctors(name)');
 
       if (error) throw error;
 
@@ -43,7 +43,7 @@ function NurseMain() {
         age: p.age,
         gender: p.gender as any,
         contact: p.contact || '',
-        assignedDoctor: 'Dr. Priya Sharma',
+        assignedDoctor: (p.doctors as any)?.name || 'Needs Assignment',
         admissionDate: p.admission_date,
         status: p.status as any,
         symptoms: p.symptoms || [],

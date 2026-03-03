@@ -1,74 +1,57 @@
-# Welcome to your Lovable project
+# CureSense — AI Treatment Intelligence
 
-## Project info
+CureSense is a production-ready, scalable SaaS hospital AI platform designed for advanced clinical decision support, real-time patient monitoring, and intelligent treatment management.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Features
 
-## How can I edit this code?
+- **Role-Based Access**: Specialized dashboards for Doctors, Nurses, Patients, and Hospital Admins.
+- **AI-Powered Analytics**: Predictive risk assessment for treatment failure, readmission, and side effects.
+- **Real-Time Monitoring**: Live vital sign tracking and critical alert system.
+- **Audit Logging**: Comprehensive traceability for all clinical actions.
+- **Mobile Accident Detection**: Edge-simulated emergency detection with multi-sensor fusion.
+- **Secure Architecture**: Built on Supabase with robust authentication and RLS.
 
-There are several ways of editing your application.
+## 🛠️ Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js (v18+)
+- npm
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/alwinjosegeorge/Curesense.git
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. Install dependencies:
+   ```sh
+   npm install
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. Set up environment variables:
+   Create a `.env` file with your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=your_url
+   VITE_SUPABASE_PUBLISHABLE_KEY=your_key
+   ```
 
-Follow these steps:
+4. Start development server:
+   ```sh
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🏗️ Tech Stack
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Framer Motion.
+- **Backend/DB**: Supabase (PostgreSQL, Auth, Edge Functions, Realtime).
+- **AI**: Google Gemini via Supabase Edge Functions.
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🏥 Module Overview
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-# Curesense
+- **/doctor**: Treatment planning, AI risk analysis, and case reporting.
+- **/nurse**: Vitals recording and patient observation.
+- **/admin**: Admissions and hospital-wide statistics.
+- **/patient**: Personal health record access and symptom tracking.
+- **/mobile-demo**: Accident detection simulation.

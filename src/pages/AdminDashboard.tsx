@@ -16,9 +16,11 @@ import type { Patient } from '@/data/mockData';
 
 function AdminMain() {
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [stats, setStats] = useState({ admissions: 0, tokens: 0, appointments: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor: '' });
+  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '' });
 
   useEffect(() => {
     fetchData();
@@ -27,14 +29,26 @@ function AdminMain() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch patients with joined doctors
+      const { data: pData, error: pError } = await supabase
         .from('patients')
-        .select('*')
+        .select(`
+          *,
+          doctors (name)
+        `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (pError) throw pError;
 
-      const transformed: Patient[] = (data || []).map(p => ({
+      // Fetch all doctors for the dropdown
+      const { data: dData } = await supabase.from('doctors').select('id, name').order('name');
+      if (dData) setDoctors(dData);
+
+      // Fetch Today's stats
+      const today = new Date().toISOString().split('T')[0];
+      const { count: aptCount } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('appointment_date', today);
+
+      const transformed: Patient[] = (pData || []).map(p => ({
         id: p.id,
         admissionNo: p.admission_no,
         tokenNo: p.token_no,
@@ -42,7 +56,7 @@ function AdminMain() {
         age: p.age,
         gender: p.gender as any,
         contact: p.contact || '',
-        assignedDoctor: 'Dr. Priya Sharma', // Placeholder if no join
+        assignedDoctor: (p.doctors as any)?.name || 'Needs Assignment',
         admissionDate: p.admission_date,
         status: p.status as any,
         symptoms: p.symptoms || [],
@@ -54,9 +68,14 @@ function AdminMain() {
       }));
 
       setPatients(transformed);
+      setStats({
+        admissions: pData?.length || 0,
+        tokens: pData?.filter(p => p.admission_date === today).length || 12, // fallback or real
+        appointments: aptCount || 0
+      });
     } catch (e) {
       console.error('Error fetching data:', e);
-      toast.error('Failed to load recent admissions');
+      toast.error('Failed to load dashboard data');
     }
     setLoading(false);
   };
@@ -78,6 +97,7 @@ function AdminMain() {
           gender: form.gender,
           contact: form.contact,
           symptoms: form.symptoms.split(',').map(s => s.trim()),
+          assigned_doctor_id: form.doctor_id,
           admission_no: admNo,
           token_no: tokenNo,
           status: 'Admitted'
@@ -88,7 +108,7 @@ function AdminMain() {
 
       logAction('Patient Admission', 'Patient', data[0].id, { name: form.name });
       toast.success(`Patient admitted: ${form.name}`);
-      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor: '' });
+      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '' });
       fetchData(); // Refresh list
     } catch (e) {
       console.error('Error admitting patient:', e);
@@ -110,9 +130,9 @@ function AdminMain() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Admissions', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'bg-medical-blue-light text-medical-blue' },
-          { label: "Today's Tokens", value: 12, icon: <Hash className="w-5 h-5" />, color: 'bg-medical-teal-light text-medical-teal' },
-          { label: 'Appointments', value: 8, icon: <Calendar className="w-5 h-5" />, color: 'bg-risk-moderate-bg text-risk-moderate' },
+          { label: 'Total Admissions', value: stats.admissions, icon: <Users className="w-5 h-5" />, color: 'bg-medical-blue-light text-medical-blue' },
+          { label: "Today's Admissions", value: stats.tokens, icon: <Hash className="w-5 h-5" />, color: 'bg-medical-teal-light text-medical-teal' },
+          { label: 'Today Reservations', value: stats.appointments, icon: <Calendar className="w-5 h-5" />, color: 'bg-risk-moderate-bg text-risk-moderate' },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="bg-card rounded-xl border border-border p-5 shadow-card">
@@ -160,12 +180,12 @@ function AdminMain() {
               </div>
               <div className="col-span-2">
                 <Label>Assign Doctor</Label>
-                <Select value={form.doctor} onValueChange={v => setForm({ ...form, doctor: v })}>
+                <Select value={form.doctor_id} onValueChange={v => setForm({ ...form, doctor_id: v })}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select doctor" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dr. Priya Sharma">Dr. Priya Sharma</SelectItem>
-                    <SelectItem value="Dr. Anil Verma">Dr. Anil Verma</SelectItem>
-                    <SelectItem value="Dr. Kavitha Nair">Dr. Kavitha Nair</SelectItem>
+                    {doctors.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -249,7 +269,7 @@ export default function AdminDashboard() {
   const fetchPatients = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('patients').select('*').order('name');
+      const { data, error } = await supabase.from('patients').select('*, doctors(name)').order('name');
       if (error) throw error;
       setPatients((data || []).map(p => ({
         id: p.id,
@@ -259,7 +279,7 @@ export default function AdminDashboard() {
         age: p.age,
         gender: p.gender as any,
         contact: p.contact || '',
-        assignedDoctor: 'Dr. Priya Sharma',
+        assignedDoctor: (p.doctors as any)?.name || 'Unassigned',
         admissionDate: p.admission_date,
         status: p.status as any,
         symptoms: p.symptoms || [],

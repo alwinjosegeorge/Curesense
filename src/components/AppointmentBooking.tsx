@@ -9,15 +9,29 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
+interface Department {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface Doctor {
+  id: string;
+  name: string;
+  specialty: string;
+  department_id: string;
+}
+
 interface Appointment {
   id: string;
   patientName: string;
-  doctor: string;
+  doctorName: string;
+  doctorSpecialty: string;
   date: string;
   time: string;
   type: string;
   tokenNo: string;
-  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Follow-up';
+  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Follow-up' | 'No-show';
   notes?: string;
 }
 
@@ -30,13 +44,35 @@ const statusColors: Record<string, string> = {
 
 export default function AppointmentBooking({ role = 'admin' }: { role?: string }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ patient: '', doctor: '', date: '', time: '', type: 'Consultation', notes: '' });
+  const [form, setForm] = useState({
+    patient: '',
+    departmentId: '',
+    doctorId: '',
+    date: '',
+    time: '',
+    type: 'Consultation',
+    notes: ''
+  });
 
   useEffect(() => {
+    fetchMetadata();
     fetchAppointments();
   }, []);
+
+  const fetchMetadata = async () => {
+    try {
+      const { data: deptData } = await supabase.from('departments').select('*').order('name');
+      const { data: docData } = await supabase.from('doctors').select('*').order('name');
+      if (deptData) setDepartments(deptData);
+      if (docData) setDoctors(docData);
+    } catch (e) {
+      console.error('Error fetching metadata:', e);
+    }
+  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -45,7 +81,8 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
         .from('appointments')
         .select(`
           *,
-          patients (name)
+          patients (name),
+          doctors (name, specialty)
         `)
         .order('appointment_date', { ascending: true });
 
@@ -54,7 +91,8 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
       const transformed: Appointment[] = (data || []).map(a => ({
         id: a.id,
         patientName: (a.patients as any)?.name || 'Unknown',
-        doctor: 'Dr. Priya Sharma', // Placeholder
+        doctorName: (a.doctors as any)?.name || 'Unknown Doctor',
+        doctorSpecialty: (a.doctors as any)?.specialty || '',
         date: a.appointment_date,
         time: a.appointment_time || '',
         type: a.type,
@@ -91,6 +129,7 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
         .from('appointments')
         .insert({
           patient_id: patientId,
+          doctor_id: form.doctorId,
           appointment_date: form.date,
           appointment_time: form.time,
           type: form.type,
@@ -102,7 +141,7 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
       if (error) throw error;
 
       toast.success(`Appointment booked! Token: ${tokenNo}`);
-      setForm({ patient: '', doctor: '', date: '', time: '', type: 'Consultation', notes: '' });
+      setForm({ patient: '', departmentId: '', doctorId: '', date: '', time: '', type: 'Consultation', notes: '' });
       fetchAppointments();
     } catch (e) {
       console.error('Error booking appointment:', e);
@@ -128,13 +167,31 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
                 <p className="text-[10px] text-muted-foreground mt-1">Must match an existing patient name for this demo.</p>
               </div>
               <div>
-                <Label className="text-xs">Doctor</Label>
-                <Select value={form.doctor} onValueChange={v => setForm({ ...form, doctor: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select doctor" /></SelectTrigger>
+                <Label className="text-xs">Department</Label>
+                <Select value={form.departmentId} onValueChange={v => setForm({ ...form, departmentId: v, doctorId: '' })}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dr. Priya Sharma">Dr. Priya Sharma</SelectItem>
-                    <SelectItem value="Dr. Anil Verma">Dr. Anil Verma</SelectItem>
-                    <SelectItem value="Dr. Kavitha Nair">Dr. Kavitha Nair</SelectItem>
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.icon} {d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Doctor</Label>
+                <Select
+                  value={form.doctorId}
+                  onValueChange={v => setForm({ ...form, doctorId: v })}
+                  disabled={!form.departmentId}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder={form.departmentId ? "Select doctor" : "Select dept first"} /></SelectTrigger>
+                  <SelectContent>
+                    {doctors
+                      .filter(d => d.department_id === form.departmentId)
+                      .map(d => (
+                        <SelectItem key={d.id} value={d.id}>{d.name} ({d.specialty})</SelectItem>
+                      ))
+                    }
                   </SelectContent>
                 </Select>
               </div>
@@ -191,7 +248,7 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-card-foreground">{apt.patientName}</div>
-                <div className="text-xs text-muted-foreground">{apt.doctor} · {apt.type} · Token: {apt.tokenNo}</div>
+                <div className="text-xs text-muted-foreground">{apt.doctorName} ({apt.doctorSpecialty}) · {apt.type} · Token: {apt.tokenNo}</div>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-card-foreground">{apt.date}</div>
