@@ -90,12 +90,14 @@ function MedicationGraph({ prescriptions }: { prescriptions: any[] }) {
 }
 
 // ─── Lab Report View Modal ───────────────────────────────────────────────────
+// ─── Lab Report View Modal (with file viewer) ───────────────────────────────────
 function LabReportModal({ lab, onClose }: { lab: any; onClose: () => void }) {
   const flagColor = lab.flag === 'Critical' ? 'text-red-600' : lab.flag === 'Abnormal' ? 'text-amber-600' : 'text-green-600';
+  const isPdf = lab.reportUrl?.toLowerCase().includes('.pdf');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-6">
+        className="bg-card rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-card-foreground">{lab.testName}</h3>
@@ -126,6 +128,37 @@ function LabReportModal({ lab, onClose }: { lab: any; onClose: () => void }) {
             <p className="text-xs text-muted-foreground">Status / Flag</p>
             <span className={`text-sm font-semibold ${flagColor}`}>{lab.flag || lab.status}</span>
           </div>
+
+          {/* Uploaded Report File */}
+          {lab.reportUrl && (
+            <div className="mt-2">
+              <p className="text-xs text-muted-foreground font-medium mb-2">Uploaded Report</p>
+              {isPdf ? (
+                <a href={lab.reportUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 p-3 rounded-lg border border-accent/30 bg-accent/5 text-accent hover:bg-accent/10 transition-colors text-sm font-medium">
+                  <FileText className="w-5 h-5" />
+                  Open PDF Report
+                </a>
+              ) : (
+                <div className="rounded-xl overflow-hidden border border-border">
+                  <img src={lab.reportUrl} alt={`${lab.testName} report`}
+                    className="w-full object-contain max-h-80 bg-black/5" />
+                  <div className="p-2 flex justify-end">
+                    <a href={lab.reportUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Open full size
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {!lab.reportUrl && (
+            <div className="p-4 rounded-lg border border-dashed border-border text-center">
+              <FileText className="w-6 h-6 text-muted-foreground mx-auto mb-1 opacity-40" />
+              <p className="text-xs text-muted-foreground">No report file uploaded</p>
+            </div>
+          )}
         </div>
         <Button onClick={onClose} className="w-full mt-5 gradient-medical text-primary-foreground">Close</Button>
       </motion.div>
@@ -267,6 +300,8 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
   const [assessment, setAssessment] = useState<Record<string, string>>({});
   const [rx, setRx] = useState({ medicine: '', dosage: '', frequency: '', start_date: new Date().toISOString().slice(0, 10) });
   const [lab, setLab] = useState({ test_name: '', value: '', normal_range: '', flag: 'Normal', result: '' });
+  const [labFile, setLabFile] = useState<File | null>(null);
+  const [labFilePreview, setLabFilePreview] = useState<string | null>(null);
 
   const submitVitals = async () => {
     if (!vitals.bp_systolic || !vitals.bp_diastolic) { toast.error('BP is required'); return; }
@@ -318,6 +353,19 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
     if (!lab.test_name) { toast.error('Test name is required'); return; }
     setSubmitting(true);
     try {
+      // Upload file to Supabase Storage if one is selected
+      let reportUrl: string | null = null;
+      if (labFile) {
+        const ext = labFile.name.split('.').pop();
+        const path = `${patient.id}/${Date.now()}_${lab.test_name.replace(/\s+/g, '_')}.${ext}`;
+        const { data: uploadData, error: uploadError } = await (supabase as any).storage
+          .from('lab-reports')
+          .upload(path, labFile, { cacheControl: '3600', upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = (supabase as any).storage.from('lab-reports').getPublicUrl(path);
+        reportUrl = urlData?.publicUrl || null;
+      }
+
       const { error } = await (supabase as any).from('lab_reports').insert({
         patient_id: patient.id,
         test_name: lab.test_name,
@@ -327,10 +375,13 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
         flag: lab.flag !== 'Normal' ? lab.flag : null,
         result: lab.result || null,
         status: 'Completed',
+        report_url: reportUrl,
       });
       if (error) throw error;
-      toast.success('Lab report added');
+      toast.success(labFile ? 'Lab report & file uploaded!' : 'Lab report added');
       setLab({ test_name: '', value: '', normal_range: '', flag: 'Normal', result: '' });
+      setLabFile(null);
+      setLabFilePreview(null);
       onRefresh();
     } catch (e: any) { toast.error(e.message || 'Failed to add lab report'); }
     finally { setSubmitting(false); }
@@ -507,9 +558,53 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
                 <Label>Interpretation / Notes</Label>
                 <textarea className={inputClass + ' h-20 resize-none'} placeholder="Optional interpretation or radiologist notes..." value={lab.result} onChange={e => setLab(v => ({ ...v, result: e.target.value }))} />
               </div>
+
+              {/* File Upload */}
+              <div>
+                <Label>Upload Report (Image or PDF)</Label>
+                <label className="mt-1 flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/30 transition-colors relative">
+                  {labFilePreview ? (
+                    labFilePreview === 'pdf' ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <FileText className="w-8 h-8 text-accent" />
+                        <span className="text-xs text-accent font-medium truncate max-w-[200px]">{labFile?.name}</span>
+                        <span className="text-xs text-muted-foreground">PDF selected</span>
+                      </div>
+                    ) : (
+                      <img src={labFilePreview} alt="preview" className="h-full w-full object-contain rounded-xl p-1" />
+                    )
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <Plus className="w-6 h-6 text-muted-foreground opacity-50" />
+                      <span className="text-xs text-muted-foreground">Click to upload image or PDF</span>
+                      <span className="text-xs text-muted-foreground opacity-60">JPG, PNG, WEBP, PDF · Max 10MB</span>
+                    </div>
+                  )}
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,application/pdf"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setLabFile(f);
+                      if (f.type === 'application/pdf') {
+                        setLabFilePreview('pdf');
+                      } else {
+                        const reader = new FileReader();
+                        reader.onload = ev => setLabFilePreview(ev.target?.result as string);
+                        reader.readAsDataURL(f);
+                      }
+                    }} />
+                </label>
+                {labFile && (
+                  <button onClick={() => { setLabFile(null); setLabFilePreview(null); }}
+                    className="mt-1 text-xs text-red-500 hover:underline flex items-center gap-1">
+                    <X className="w-3 h-3" /> Remove file
+                  </button>
+                )}
+              </div>
+
               <Button onClick={submitLab} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Add Lab Report
+                {labFile ? 'Upload Report & Save' : 'Add Lab Report'}
               </Button>
             </>
           )}
@@ -606,6 +701,7 @@ function DoctorMain() {
           normalRange: lab.normal_range,
           value: lab.value,
           flag: lab.flag,
+          reportUrl: lab.report_url || null,
         })),
         riskScores: { treatmentFailure: 35, diseaseProgression: 55, drugSideEffect: 20, readmission: 40 },
       }));
