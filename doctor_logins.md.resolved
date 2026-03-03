@@ -1,0 +1,125 @@
+# CureSense — Doctor Login Credentials
+
+> **Password for ALL doctors**: `doctor@123`
+> Login with **ID Number** (e.g. DOC001) at the Doctor Login screen.
+
+---
+
+## 🫀 Cardiology — 5 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Biby Chacko Olari | **DOC001** | drbibychackoolari@curesense.ai | 3 |
+| Dr. Ramdas Nayak H | **DOC002** | drramdasnayakh@curesense.ai | 3 |
+| Dr. James Thomas | **DOC003** | drjamesthomas@curesense.ai | 3 |
+| Dr. Raju George | **DOC004** | drrajugeorge@curesense.ai | 3 |
+| Dr. Rajeev Abraham | **DOC005** | drrajeevabraham@curesense.ai | 3 |
+
+---
+
+## 👶 Paediatrics — 3 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Thomas Abraham | **DOC006** | drthomasabraham@curesense.ai | 3 |
+| Dr. R. Suresh Kumar | **DOC007** | drrsureshkumar@curesense.ai | 3 |
+| Dr. Jyothis James | **DOC008** | drjyothisjames@curesense.ai | 3 |
+
+---
+
+## 🧠 Neurology / Neurosurgery — 2 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Arun George Tharayanil | **DOC009** | drarungeorgetharayanil@curesense.ai | 3 |
+| Dr. Vijayakumar Madhavdass Menon | **DOC010** | drvijayakumarmadhavdassmenon@curesense.ai | 3 |
+
+---
+
+## 🦴 Orthopaedics — 2 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Prof. Dr. Mathew Abraham | **DOC011** | profdrmathewabraham@curesense.ai | 3 |
+| Dr. O.T. George | **DOC012** | drotgeorge@curesense.ai | 3 |
+
+---
+
+## 💊 Internal Medicine / General Medicine — 4 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Joy Mani Theckedathu | **DOC013** | drjoymanitheckedathu@curesense.ai | 3 |
+| Dr. Jubil Jose Kurian | **DOC014** | drjubiljosekurian@curesense.ai | 3 |
+| Dr. Prince Joseph | **DOC015** | drprincejoseph@curesense.ai | 3 |
+| Dr. Sheela Kurian V | **DOC016** | drsheelakurianv@curesense.ai | 3 |
+
+---
+
+## 🤱 Obstetrics & Gynaecology — 2 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Agitha Kumari | **DOC017** | dragithakumari@curesense.ai | 3 |
+| Dr. T. Geetha | **DOC018** | drtgeetha@curesense.ai | 3 |
+
+---
+
+## 🔬 Pathology — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Rosamma Thomas | **DOC019** | drrosammathomas@curesense.ai | 3 |
+
+---
+
+## 👁️ Ophthalmology — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Manuel John | **DOC020** | drmanueljohn@curesense.ai | 3 |
+
+---
+
+## 🫘 Nephrology — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Manjula Ramachandran | **DOC021** | drmanjularamachandran@curesense.ai | 3 |
+
+---
+
+## 👂 ENT (Ear, Nose & Throat) — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Philip George | **DOC022** | drphilipgeorge@curesense.ai | **8** (original 8 patients) |
+
+---
+
+## 🧬 Psychiatry / Behavioural Sciences — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Roy Abraham Kallivayalil | **DOC023** | drroyabrahamkallivayalil@curesense.ai | 3 |
+
+---
+
+## 🩻 Radiology & Imaging — 1 Doctor
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Rajesh Antony | **DOC024** | drrajeshantony@curesense.ai | 3 |
+
+---
+
+## 🫁 Pulmonology / Chest Medicine — 2 Doctors
+
+| Doctor | Login ID | Email | Patients |
+|---|---|---|---|
+| Dr. Merin Yohannan | **DOC025** | drmerinyohannan@curesense.ai | 3 |
+| Dr. Jaisy Thomas | **DOC026** | drjaisythomas@curesense.ai | 3 |
+
+---
+
+> **Total**: 26 doctors · 13 departments · 86 patients seeded

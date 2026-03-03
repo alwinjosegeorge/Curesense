@@ -88,7 +88,7 @@ export default function DashboardSidebar() {
             <div className="text-xs text-sidebar-foreground/50 capitalize">{user.role}</div>
           </div>
         </div>
-        <button onClick={() => { logout(); navigate('/login'); }}
+        <button onClick={async () => { navigate('/login', { replace: true }); await logout(); }}
           className="flex items-center gap-2 text-sm text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors w-full px-3 py-2 rounded-lg hover:bg-sidebar-accent/50">
           <LogOut className="w-4 h-4" />
           Sign Out

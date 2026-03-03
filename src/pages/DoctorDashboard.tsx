@@ -634,6 +634,7 @@ function DoctorMain() {
   const [showAddData, setShowAddData] = useState(false);
   const [viewingLab, setViewingLab] = useState<any | null>(null);
   const [doctorDept, setDoctorDept] = useState('Internal Medicine / General Medicine');
+  const [doctorDbId, setDoctorDbId] = useState<string | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -661,6 +662,7 @@ function DoctorMain() {
 
         if (doctorRow) {
           query = query.eq('assigned_doctor_id', doctorRow.id);
+          setDoctorDbId(doctorRow.id);
           if (doctorRow.departments?.name) setDoctorDept(doctorRow.departments.name);
         }
       }
@@ -715,11 +717,15 @@ function DoctorMain() {
       setPatients(transformed);
       if (transformed.length > 0 && !selectedPatient) setSelectedPatient(transformed[0]);
 
-      // Alerts
-      const { data: alertsData } = await (supabase as any)
-        .from('alerts')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Alerts — only for this doctor's patients
+      const patientIds = transformed.map(p => p.id);
+      const { data: alertsData } = patientIds.length > 0
+        ? await (supabase as any)
+          .from('alerts')
+          .select('*')
+          .in('patient_id', patientIds)
+          .order('created_at', { ascending: false })
+        : { data: [] };
 
       const transformedAlerts: Alert[] = (alertsData || []).map((a: any) => ({
         id: a.id,
@@ -1021,7 +1027,17 @@ function DoctorMain() {
 }
 
 function DoctorAppointments() {
-  return <AppointmentBooking role="doctor" />;
+  const { user } = useAuth();
+  const [doctorId, setDoctorId] = React.useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (user?.id) {
+      (supabase as any).from('doctors').select('id').eq('user_id', user.id).maybeSingle()
+        .then(({ data }: any) => { if (data?.id) setDoctorId(data.id); });
+    }
+  }, [user]);
+
+  return <AppointmentBooking role="doctor" doctorId={doctorId} />;
 }
 
 export default function DoctorDashboard() {
