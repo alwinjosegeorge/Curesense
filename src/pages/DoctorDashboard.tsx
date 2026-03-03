@@ -133,19 +133,147 @@ function LabReportModal({ lab, onClose }: { lab: any; onClose: () => void }) {
   );
 }
 
+// ─── Department-Specific Field Config ──────────────────────────────────────
+const DEPT_FIELDS: Record<string, { vitalsExtra: { key: string; label: string; placeholder: string; unit: string }[], labSuggestions: string[], assessments: { key: string; label: string; type: string; options?: string[] }[] }> = {
+  'Cardiology': {
+    vitalsExtra: [
+      { key: 'troponin', label: 'Troponin I (ng/mL)', placeholder: '0.04', unit: 'ng/mL' },
+      { key: 'ck_mb', label: 'CK-MB (U/L)', placeholder: '25', unit: 'U/L' },
+      { key: 'bnp', label: 'BNP (pg/mL)', placeholder: '100', unit: 'pg/mL' },
+    ],
+    labSuggestions: ['ECG', 'Echocardiogram', 'Troponin I', 'CK-MB', 'BNP', 'Lipid Profile', 'Chest X-Ray', 'Coronary Angiogram'],
+    assessments: [
+      { key: 'ecg_rhythm', label: 'ECG Rhythm', type: 'select', options: ['Normal Sinus Rhythm', 'Atrial Fibrillation', 'ST Elevation (STEMI)', 'ST Depression', 'LBBB', 'Heart Block', 'VT/VF'] },
+      { key: 'ef_percent', label: 'Ejection Fraction (%)', type: 'number' },
+      { key: 'nyha_class', label: 'NYHA Class', type: 'select', options: ['Class I', 'Class II', 'Class III', 'Class IV'] },
+    ]
+  },
+  'Neurology / Neurosurgery': {
+    vitalsExtra: [
+      { key: 'gcs_score', label: 'GCS Score (3-15)', placeholder: '15', unit: '/15' },
+      { key: 'pupils', label: 'Pupil Size (mm)', placeholder: '3', unit: 'mm' },
+    ],
+    labSuggestions: ['CT Brain', 'MRI Brain', 'EEG', 'CSF Analysis', 'D-Dimer', 'MRI Spine'],
+    assessments: [
+      { key: 'nih_stroke_scale', label: 'NIH Stroke Scale (0-42)', type: 'number' },
+      { key: 'pupil_reactivity', label: 'Pupil Reactivity', type: 'select', options: ['Both Reactive', 'Left Fixed', 'Right Fixed', 'Both Fixed', 'Sluggish'] },
+      { key: 'power_grade', label: 'Motor Power (0-5)', type: 'select', options: ['0 - No movement', '1 - Flicker', '2 - Gravity eliminated', '3 - Against gravity', '4 - Against resistance', '5 - Normal'] },
+      { key: 'speech', label: 'Speech', type: 'select', options: ['Normal', 'Dysarthria', 'Aphasia', 'Mutism'] },
+    ]
+  },
+  'Pulmonology / Chest Medicine': {
+    vitalsExtra: [
+      { key: 'respiratory_rate', label: 'Respiratory Rate (/min)', placeholder: '16', unit: '/min' },
+      { key: 'peak_flow', label: 'Peak Flow (L/min)', placeholder: '400', unit: 'L/min' },
+      { key: 'fev1', label: 'FEV1 (%)', placeholder: '80', unit: '%' },
+    ],
+    labSuggestions: ['Chest X-Ray', 'CT Chest', 'Spirometry', 'ABG', 'Sputum Culture', 'D-Dimer', 'HRCT Chest'],
+    assessments: [
+      { key: 'breath_sounds', label: 'Breath Sounds', type: 'select', options: ['Clear', 'Wheeze', 'Crackles', 'Rhonchi', 'Absent', 'Pleural Rub'] },
+      { key: 'dyspnea_grade', label: 'Dyspnea (mMRC)', type: 'select', options: ['Grade 0 - None', 'Grade 1 - On hills', 'Grade 2 - Level walking', 'Grade 3 - 100m', 'Grade 4 - At rest'] },
+      { key: 'cough_type', label: 'Cough Type', type: 'select', options: ['None', 'Dry', 'Productive', 'Hemoptysis', 'Night cough'] },
+    ]
+  },
+  'Nephrology': {
+    vitalsExtra: [
+      { key: 'urine_output_ml', label: 'Urine Output (mL/24h)', placeholder: '1500', unit: 'mL/24h' },
+      { key: 'weight_kg', label: 'Body Weight (kg)', placeholder: '70', unit: 'kg' },
+    ],
+    labSuggestions: ['Serum Creatinine', 'BUN', 'eGFR', 'Urine Routine', 'Urine Culture', 'Serum Electrolytes', 'Urine Protein:Creatinine Ratio'],
+    assessments: [
+      { key: 'edema_grade', label: 'Pedal Edema', type: 'select', options: ['None', '+1 (Mild)', '+2 (Moderate)', '+3 (Severe)', '+4 (Pitting)'] },
+      { key: 'dialysis_session', label: 'Dialysis Session', type: 'select', options: ['Not Required', 'HD Today', 'PD Today', 'CRRT', 'Planned'] },
+      { key: 'fluid_balance', label: 'Fluid Balance', type: 'select', options: ['Balanced', 'Positive 500mL', 'Positive 1L', 'Positive 2L', 'Negative'] },
+    ]
+  },
+  'Obstetrics & Gynaecology': {
+    vitalsExtra: [
+      { key: 'fhr', label: 'Fetal Heart Rate (bpm)', placeholder: '140', unit: 'bpm' },
+      { key: 'fundal_height', label: 'Fundal Height (cm)', placeholder: '28', unit: 'cm' },
+    ],
+    labSuggestions: ['USG Obstetric', 'HbA1c', 'CBC', 'Urine Protein', 'Coagulation Profile', 'Pap Smear'],
+    assessments: [
+      { key: 'gestational_age', label: 'Gestational Age (weeks)', type: 'number' },
+      { key: 'presentation', label: 'Fetal Presentation', type: 'select', options: ['Cephalic', 'Breech', 'Transverse', 'Oblique'] },
+      { key: 'cervical_os', label: 'Cervical Os', type: 'select', options: ['Closed', '1-2 cm', '3-4 cm', '5-6 cm', 'Fully Dilated', 'Not Applicable'] },
+    ]
+  },
+  'Orthopaedics': {
+    vitalsExtra: [
+      { key: 'pain_score', label: 'Pain Score (VAS 0-10)', placeholder: '5', unit: '/10' },
+    ],
+    labSuggestions: ['X-Ray', 'MRI Joint', 'CT Bone', 'Bone Density (DEXA)', 'ESR', 'CRP', 'Uric Acid'],
+    assessments: [
+      { key: 'affected_joint', label: 'Affected Area', type: 'select', options: ['Spine', 'Hip', 'Knee', 'Shoulder', 'Ankle', 'Wrist', 'Elbow', 'Other'] },
+      { key: 'rom_status', label: 'Range of Motion', type: 'select', options: ['Full', 'Restricted Mildly', 'Restricted Moderately', 'Severely Restricted', 'No Movement'] },
+      { key: 'weight_bearing', label: 'Weight Bearing', type: 'select', options: ['Full', 'Partial', 'Non-Weight Bearing', 'Bed Rest'] },
+    ]
+  },
+  'Paediatrics': {
+    vitalsExtra: [
+      { key: 'weight_kg', label: 'Weight (kg)', placeholder: '20', unit: 'kg' },
+      { key: 'height_cm', label: 'Height (cm)', placeholder: '110', unit: 'cm' },
+    ],
+    labSuggestions: ['CBC', 'Blood Culture', 'Chest X-Ray', 'Urine Routine', 'Dengue NS1', 'Malaria Antigen', 'Widal Test'],
+    assessments: [
+      { key: 'wfa_percentile', label: 'Weight-for-Age Percentile', type: 'select', options: ['Normal (>25th)', 'Mild SAM (15-25th)', 'Moderate SAM (3-15th)', 'Severe SAM (<3rd)'] },
+      { key: 'fontanelle', label: 'Fontanelle (if infant)', type: 'select', options: ['N/A', 'Normal', 'Bulging', 'Sunken', 'Closed'] },
+      { key: 'dehydration', label: 'Dehydration Status', type: 'select', options: ['None', 'Mild', 'Moderate', 'Severe'] },
+    ]
+  },
+  'Psychiatry / Behavioural Sciences': {
+    vitalsExtra: [],
+    labSuggestions: ['CBC', 'LFT', 'Thyroid Profile', 'Serum Lithium', 'Clozapine Level', 'EEG'],
+    assessments: [
+      { key: 'phq9_score', label: 'PHQ-9 Score (0-27)', type: 'number' },
+      { key: 'mse_affect', label: 'Affect (Mental State)', type: 'select', options: ['Euthymic', 'Depressed', 'Anxious', 'Elated', 'Labile', 'Blunted', 'Flat'] },
+      { key: 'insight', label: 'Insight', type: 'select', options: ['Full', 'Partial', 'None'] },
+      { key: 'suicidality', label: 'Suicidal Ideation', type: 'select', options: ['None', 'Passive Ideation', 'Active Ideation', 'Plan present', 'Attempt'] },
+    ]
+  },
+  'ENT (Ear, Nose & Throat)': {
+    vitalsExtra: [],
+    labSuggestions: ['Audiogram', 'Tympanogram', 'CT Paranasal Sinus', 'Nasal Endoscopy', 'Throat Swab Culture', 'Laryngoscopy'],
+    assessments: [
+      { key: 'hearing_loss', label: 'Hearing Loss', type: 'select', options: ['None', 'Mild (26-40 dB)', 'Moderate (41-60 dB)', 'Severe (61-80 dB)', 'Profound (>81 dB)'] },
+      { key: 'vertigo_type', label: 'Vertigo', type: 'select', options: ['None', 'BPPV', 'Menieres', 'Labyrinthitis', 'Central', 'Other'] },
+      { key: 'tympanic_membrane', label: 'Tympanic Membrane', type: 'select', options: ['Intact', 'Perforated', 'Retracted', 'Bulging', 'Scarred'] },
+      { key: 'nasal_septum', label: 'Nasal Septum', type: 'select', options: ['Midline', 'Deviated Left', 'Deviated Right', 'Perforated'] },
+    ]
+  },
+  'Ophthalmology': {
+    vitalsExtra: [
+      { key: 'iop_right', label: 'IOP Right Eye (mmHg)', placeholder: '15', unit: 'mmHg' },
+      { key: 'iop_left', label: 'IOP Left Eye (mmHg)', placeholder: '15', unit: 'mmHg' },
+    ],
+    labSuggestions: ['OCT Macula', 'Visual Field Test', 'Fundus Photography', 'Fluorescein Angiography', 'Ultrasound B-Scan'],
+    assessments: [
+      { key: 'va_right', label: 'Visual Acuity Right', type: 'select', options: ['6/6', '6/9', '6/12', '6/18', '6/24', '6/36', '6/60', 'CF', 'HM', 'PL', 'NPL'] },
+      { key: 'va_left', label: 'Visual Acuity Left', type: 'select', options: ['6/6', '6/9', '6/12', '6/18', '6/24', '6/36', '6/60', 'CF', 'HM', 'PL', 'NPL'] },
+      { key: 'lens_status', label: 'Lens', type: 'select', options: ['Clear', 'Early Cataract', 'Mature Cataract', 'IOL in situ', 'Aphakia'] },
+    ]
+  },
+};
+
 // ─── Add Data Panel ──────────────────────────────────────────────────────────
-function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRefresh: () => void; onClose: () => void }) {
-  const [tab, setTab] = useState<'vitals' | 'rx' | 'lab'>('vitals');
+function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Patient; department: string; onRefresh: () => void; onClose: () => void }) {
+  const [tab, setTab] = useState<'vitals' | 'rx' | 'lab' | 'assess'>('vitals');
   const [submitting, setSubmitting] = useState(false);
 
+  const deptConfig = DEPT_FIELDS[department] || DEPT_FIELDS['Cardiology'];
+
   const [vitals, setVitals] = useState({ bp_systolic: '', bp_diastolic: '', sugar: '', temperature: '', oxygen: '', heart_rate: '' });
-  const [rx, setRx] = useState({ medicine: '', dosage: '', frequency: '', start_date: new Date().toISOString().slice(0, 10), notes: '' });
+  const [deptVitals, setDeptVitals] = useState<Record<string, string>>({});
+  const [assessment, setAssessment] = useState<Record<string, string>>({});
+  const [rx, setRx] = useState({ medicine: '', dosage: '', frequency: '', start_date: new Date().toISOString().slice(0, 10) });
   const [lab, setLab] = useState({ test_name: '', value: '', normal_range: '', flag: 'Normal', result: '' });
 
   const submitVitals = async () => {
     if (!vitals.bp_systolic || !vitals.bp_diastolic) { toast.error('BP is required'); return; }
     setSubmitting(true);
     try {
+      const extras = Object.entries(deptVitals).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
+      const assessmentStr = Object.entries(assessment).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
       const { error } = await (supabase as any).from('vitals').insert({
         patient_id: patient.id,
         bp_systolic: parseInt(vitals.bp_systolic),
@@ -154,10 +282,13 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
         temperature: vitals.temperature ? parseFloat(vitals.temperature) : null,
         oxygen: vitals.oxygen ? parseFloat(vitals.oxygen) : null,
         heart_rate: vitals.heart_rate ? parseInt(vitals.heart_rate) : null,
+        notes: [extras, assessmentStr].filter(Boolean).join(' | ') || null,
       });
       if (error) throw error;
       toast.success('Vitals recorded successfully');
       setVitals({ bp_systolic: '', bp_diastolic: '', sugar: '', temperature: '', oxygen: '', heart_rate: '' });
+      setDeptVitals({});
+      setAssessment({});
       onRefresh();
     } catch (e: any) { toast.error(e.message || 'Failed to save vitals'); }
     finally { setSubmitting(false); }
@@ -177,7 +308,7 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
       });
       if (error) throw error;
       toast.success('Prescription added');
-      setRx({ medicine: '', dosage: '', frequency: '', start_date: new Date().toISOString().slice(0, 10), notes: '' });
+      setRx({ medicine: '', dosage: '', frequency: '', start_date: new Date().toISOString().slice(0, 10) });
       onRefresh();
     } catch (e: any) { toast.error(e.message || 'Failed to add prescription'); }
     finally { setSubmitting(false); }
@@ -206,7 +337,6 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
   };
 
   const inputClass = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
-  const selectClass = inputClass;
 
   return (
     <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
@@ -216,18 +346,20 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
           <div>
             <h3 className="text-lg font-bold text-card-foreground">Add Patient Data</h3>
             <p className="text-sm text-muted-foreground">{patient.name} · {patient.admissionNo}</p>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">{department}</span>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto">
           {[
             { key: 'vitals', label: 'Vitals', icon: <Activity className="w-4 h-4" /> },
+            { key: 'assess', label: `${department.split(' ')[0]} Exam`, icon: <Stethoscope className="w-4 h-4" /> },
             { key: 'rx', label: 'Prescription', icon: <Pill className="w-4 h-4" /> },
             { key: 'lab', label: 'Lab Report', icon: <FlaskConical className="w-4 h-4" /> },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key as any)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${tab === t.key ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground'}`}>
+              className={`flex-1 flex items-center justify-center gap-1 py-3 text-xs font-medium whitespace-nowrap px-2 transition-colors ${tab === t.key ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground'}`}>
               {t.icon}{t.label}
             </button>
           ))}
@@ -236,6 +368,7 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
         <div className="p-5 space-y-4 flex-1">
           {tab === 'vitals' && (
             <>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Standard Vitals</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>BP Systolic (mmHg) *</Label>
@@ -254,7 +387,7 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
                   <input className={inputClass} type="number" step="0.1" placeholder="98.6" value={vitals.temperature} onChange={e => setVitals(v => ({ ...v, temperature: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Oxygen Saturation (%)</Label>
+                  <Label>O₂ Saturation (%)</Label>
                   <input className={inputClass} type="number" placeholder="98" value={vitals.oxygen} onChange={e => setVitals(v => ({ ...v, oxygen: e.target.value }))} />
                 </div>
                 <div>
@@ -262,9 +395,51 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
                   <input className={inputClass} type="number" placeholder="72" value={vitals.heart_rate} onChange={e => setVitals(v => ({ ...v, heart_rate: e.target.value }))} />
                 </div>
               </div>
+              {deptConfig.vitalsExtra.length > 0 && (
+                <>
+                  <p className="text-xs text-accent font-medium uppercase tracking-wide border-t border-border pt-3">{department} — Specific Parameters</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {deptConfig.vitalsExtra.map(f => (
+                      <div key={f.key}>
+                        <Label>{f.label}</Label>
+                        <div className="relative">
+                          <input className={inputClass} type="number" placeholder={f.placeholder} value={deptVitals[f.key] || ''} onChange={e => setDeptVitals(v => ({ ...v, [f.key]: e.target.value }))} />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{f.unit}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <Button onClick={submitVitals} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                 Record Vitals
+              </Button>
+            </>
+          )}
+
+          {tab === 'assess' && (
+            <>
+              <p className="text-xs text-accent font-medium uppercase tracking-wide">{department} — Clinical Assessment</p>
+              <div className="space-y-3">
+                {deptConfig.assessments.map(f => (
+                  <div key={f.key}>
+                    <Label>{f.label}</Label>
+                    {f.type === 'select' ? (
+                      <select className={inputClass} value={assessment[f.key] || ''} onChange={e => setAssessment(v => ({ ...v, [f.key]: e.target.value }))}>
+                        <option value="">Select...</option>
+                        {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input className={inputClass} type="number" value={assessment[f.key] || ''} onChange={e => setAssessment(v => ({ ...v, [f.key]: e.target.value }))} />
+                    )}
+                  </div>
+                ))}
+                {deptConfig.assessments.length === 0 && <p className="text-sm text-muted-foreground">No department-specific assessments defined.</p>}
+              </div>
+              <Button onClick={submitVitals} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Save Assessment (with any vitals entered)
               </Button>
             </>
           )}
@@ -281,7 +456,7 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
               </div>
               <div>
                 <Label>Frequency *</Label>
-                <select className={selectClass} value={rx.frequency} onChange={e => setRx(v => ({ ...v, frequency: e.target.value }))}>
+                <select className={inputClass} value={rx.frequency} onChange={e => setRx(v => ({ ...v, frequency: e.target.value }))}>
                   <option value="">Select frequency</option>
                   <option>Once daily</option>
                   <option>Twice daily</option>
@@ -322,7 +497,7 @@ function AddDataPanel({ patient, onRefresh, onClose }: { patient: Patient; onRef
               </div>
               <div>
                 <Label>Flag</Label>
-                <select className={selectClass} value={lab.flag} onChange={e => setLab(v => ({ ...v, flag: e.target.value }))}>
+                <select className={inputClass} value={lab.flag} onChange={e => setLab(v => ({ ...v, flag: e.target.value }))}>
                   <option>Normal</option>
                   <option>Abnormal</option>
                   <option>Critical</option>
@@ -357,6 +532,7 @@ function DoctorMain() {
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [showAddData, setShowAddData] = useState(false);
   const [viewingLab, setViewingLab] = useState<any | null>(null);
+  const [doctorDept, setDoctorDept] = useState('Internal Medicine / General Medicine');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -374,17 +550,17 @@ function DoctorMain() {
           doctors!assigned_doctor_id (name, id, user_id)
         `);
 
-      // If real user, filter to their patients
+      // If real user, filter to their patients and fetch department
       if (user?.role === 'doctor' && user?.id) {
-        // Try matching by doctor's supabase user_id
         const { data: doctorRow } = await (supabase as any)
           .from('doctors')
-          .select('id')
+          .select('id, departments(name)')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (doctorRow) {
           query = query.eq('assigned_doctor_id', doctorRow.id);
+          if (doctorRow.departments?.name) setDoctorDept(doctorRow.departments.name);
         }
       }
 
@@ -732,7 +908,7 @@ function DoctorMain() {
       {/* Add Data Slide-in Panel */}
       <AnimatePresence>
         {showAddData && selectedPatient && (
-          <AddDataPanel patient={selectedPatient} onRefresh={() => { fetchData(); setShowAddData(false); }} onClose={() => setShowAddData(false)} />
+          <AddDataPanel patient={selectedPatient} department={doctorDept} onRefresh={() => { fetchData(); setShowAddData(false); }} onClose={() => setShowAddData(false)} />
         )}
       </AnimatePresence>
 
