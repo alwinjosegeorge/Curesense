@@ -21,7 +21,7 @@ function AdminMain() {
   const [stats, setStats] = useState({ admissions: 0, tokens: 0, appointments: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '' });
+  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '', email: '', password: '' });
 
   useEffect(() => {
     fetchData();
@@ -94,6 +94,29 @@ function AdminMain() {
       const admNo = `ADM${String(nextId).padStart(3, '0')}`;
       const tokenNo = `TKN-${String(40 + nextId).padStart(4, '0')}`;
 
+      // 1. Create auth account for the patient
+      const email = form.email.trim();
+      const password = form.password.trim();
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: form.name, role: 'patient' } }
+      });
+      if (authError) throw new Error(`Auth error: ${authError.message}`);
+      const newUserId = authData.user?.id;
+
+      // 2. Create profiles row for the patient
+      if (newUserId) {
+        await (supabase as any).from('profiles').upsert({
+          user_id: newUserId,
+          full_name: form.name,
+          email,
+          role: 'patient',
+          id_number: admNo,
+        });
+      }
+
+      // 3. Insert patient record linked to auth user
       const { data, error } = await supabase
         .from('patients')
         .insert({
@@ -102,24 +125,25 @@ function AdminMain() {
           gender: form.gender,
           contact: form.contact,
           symptoms: form.symptoms.split(',').map(s => s.trim()),
-          assigned_doctor_id: form.doctor_id,
+          assigned_doctor_id: form.doctor_id || null,
           date_of_birth: form.dob,
           admission_no: admNo,
           token_no: tokenNo,
-          status: 'Admitted'
+          status: 'Admitted',
+          user_id: newUserId || null,
         })
         .select();
 
       if (error) throw error;
 
       logAction('Patient Admission', 'Patient', data[0].id, { name: form.name });
-      toast.success(`Patient admitted: ${form.name}`);
-      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '' });
+      toast.success(`✅ Patient admitted! Login: ${email} / ${password}`, { duration: 8000 });
+      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '', email: '', password: '' });
       setSelectedDeptId('');
-      fetchData(); // Refresh list
-    } catch (e) {
+      fetchData();
+    } catch (e: any) {
       console.error('Error admitting patient:', e);
-      toast.error('Failed to admit patient. Please try again.');
+      toast.error(e.message || 'Failed to admit patient. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -231,6 +255,15 @@ function AdminMain() {
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="email">Patient Login Email *</Label>
+                <Input id="email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="patient@hospital.com" className="mt-1" required />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="password">Login Password *</Label>
+                <Input id="password" type="text" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" className="mt-1" required minLength={6} />
+                <p className="text-xs text-muted-foreground mt-1">Share these credentials with the patient. They will use them to log in.</p>
               </div>
             </div>
             <Button type="submit" disabled={submitting} className="w-full gradient-medical text-primary-foreground hover:opacity-90">

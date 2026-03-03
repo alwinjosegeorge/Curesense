@@ -30,8 +30,10 @@ function PatientMain() {
   const fetchPatientData = async () => {
     setLoading(true);
     try {
-      // For demo purposes, we fetch the first patient
-      const { data: patientsData, error: patientError } = await supabase
+      // Get currently logged-in auth user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      let query = supabase
         .from('patients')
         .select(`
           *,
@@ -39,9 +41,17 @@ function PatientMain() {
           prescriptions (*),
           lab_reports (*),
           doctors!assigned_doctor_id (name)
-        `)
-        .limit(1)
-        .single();
+        `);
+
+      if (authUser?.id) {
+        // Fetch patient whose user_id matches the logged-in user
+        query = query.eq('user_id', authUser.id);
+      } else {
+        // Fallback: first patient (for demo/testing purposes)
+        query = query.limit(1);
+      }
+
+      const { data: patientsData, error: patientError } = await query.maybeSingle();
 
       if (patientError) throw patientError;
 
