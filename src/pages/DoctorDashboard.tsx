@@ -392,7 +392,7 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
   return (
     <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
       className="fixed inset-0 z-40 flex justify-end bg-black/40">
-      <div className="w-full max-w-md h-full bg-card shadow-2xl overflow-y-auto flex flex-col">
+      <div className="w-full max-w-md h-full bg-card shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
           <div>
             <h3 className="text-lg font-bold text-card-foreground">Add Patient Data</h3>
@@ -416,7 +416,7 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
           ))}
         </div>
 
-        <div className="p-5 space-y-4 flex-1">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto pb-24">
           {tab === 'vitals' && (
             <>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Standard Vitals</p>
@@ -462,10 +462,6 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
                   </div>
                 </>
               )}
-              <Button onClick={submitVitals} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Record Vitals
-              </Button>
             </>
           )}
 
@@ -488,10 +484,6 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
                 ))}
                 {deptConfig.assessments.length === 0 && <p className="text-sm text-muted-foreground">No department-specific assessments defined.</p>}
               </div>
-              <Button onClick={submitVitals} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Save Assessment (with any vitals entered)
-              </Button>
             </>
           )}
 
@@ -525,10 +517,6 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
                 <Label>Start Date</Label>
                 <input className={inputClass} type="date" value={rx.start_date} onChange={e => setRx(v => ({ ...v, start_date: e.target.value }))} />
               </div>
-              <Button onClick={submitRx} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Add Prescription
-              </Button>
             </>
           )}
 
@@ -602,12 +590,30 @@ function AddDataPanel({ patient, department, onRefresh, onClose }: { patient: Pa
                 )}
               </div>
 
-              <Button onClick={submitLab} disabled={submitting} className="w-full gradient-medical text-primary-foreground">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                {labFile ? 'Upload Report & Save' : 'Add Lab Report'}
-              </Button>
             </>
           )}
+        </div>
+
+        {/* ── Sticky Save Footer ── */}
+        <div className="sticky bottom-0 left-0 right-0 bg-card border-t border-border p-4 flex gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+          <Button onClick={onClose} variant="outline" className="flex-1 text-muted-foreground" disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={tab === 'vitals' ? submitVitals : tab === 'assess' ? submitVitals : tab === 'rx' ? submitRx : submitLab}
+            disabled={submitting}
+            className="flex-1 gradient-medical text-primary-foreground font-semibold">
+            {submitting ? (
+              <><Loader2 className="w-4 h-4 animate-spin mr-2" />Saving...</>
+            ) : (
+              <><Plus className="w-4 h-4 mr-2" />
+                {tab === 'vitals' ? 'Save Vitals' :
+                  tab === 'assess' ? 'Save Assessment' :
+                    tab === 'rx' ? 'Add Prescription' :
+                      labFile ? 'Upload & Save Report' : 'Add Lab Report'}
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </motion.div>
