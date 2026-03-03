@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 30% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 15%;
+
+    --primary: 213 56% 24%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 213 56% 24%;
+
+    --muted: 210 25% 94%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 174 62% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 213 56% 24%;
+
+    --radius: 0.625rem;
+
+    /* CureSense Custom Tokens */
+    --medical-blue: 213 56% 24%;
+    --medical-blue-light: 213 60% 94%;
+    --medical-teal: 174 62% 40%;
+    --medical-teal-light: 174 50% 92%;
+
+    --risk-stable: 152 60% 42%;
+    --risk-stable-bg: 152 50% 94%;
+    --risk-moderate: 38 92% 50%;
+    --risk-moderate-bg: 38 80% 94%;
+    --risk-critical: 0 72% 51%;
+    --risk-critical-bg: 0 60% 95%;
+
+    --chart-1: 213 56% 40%;
+    --chart-2: 174 62% 40%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 60% 50%;
+    --chart-5: 0 72% 51%;
+
+    --sidebar-background: 213 56% 18%;
+    --sidebar-foreground: 210 30% 90%;
+    --sidebar-primary: 174 62% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 50% 25%;
+    --sidebar-accent-foreground: 210 30% 95%;
+    --sidebar-border: 213 40% 25%;
+    --sidebar-ring: 174 62% 50%;
+
+    --gradient-medical: linear-gradient(135deg, hsl(213, 56%, 24%), hsl(213, 56%, 35%));
+    --gradient-teal: linear-gradient(135deg, hsl(174, 62%, 35%), hsl(174, 62%, 50%));
+    --gradient-hero: linear-gradient(135deg, hsl(213, 56%, 20%), hsl(213, 56%, 30%), hsl(174, 62%, 40%));
+    --shadow-card: 0 1px 3px 0 hsl(213 30% 20% / 0.06), 0 1px 2px -1px hsl(213 30% 20% / 0.06);
+    --shadow-elevated: 0 10px 25px -5px hsl(213 30% 20% / 0.1), 0 8px 10px -6px hsl(213 30% 20% / 0.05);
+    --shadow-glow: 0 0 20px hsl(174 62% 40% / 0.15);
+  }
+
+  .dark {
+    --background: 215 30% 8%;
+    --foreground: 210 20% 92%;
+    --card: 215 28% 12%;
+    --card-foreground: 210 20% 92%;
+    --popover: 215 28% 12%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 174 62% 50%;
+    --primary-foreground: 215 30% 8%;
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 215 20% 16%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 174 62% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 20%;
+    --input: 215 20% 20%;
+    --ring: 174 62% 50%;
+    --sidebar-background: 215 30% 6%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 174 62% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 14%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 215 20% 15%;
+    --sidebar-ring: 174 62% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-medical {
+    background: var(--gradient-medical);
+  }
+  .gradient-teal {
+    background: var(--gradient-teal);
+  }
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+}
