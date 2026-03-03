@@ -111,7 +111,7 @@ export default function LoginPage() {
                 <p className="text-muted-foreground mb-8">Select your role to continue</p>
                 <div className="space-y-3">
                   {roles.map((r) => (
-                    <button key={r.role} onClick={() => { setSelectedRole(r.role); setLoginId(r.idPlaceholder); }}
+                    <button key={r.role} onClick={() => { setSelectedRole(r.role); setLoginId(''); setPassword(''); }}
                       className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-accent hover:shadow-elevated transition-all duration-200 text-left group">
                       <div className="w-11 h-11 rounded-lg bg-medical-blue-light flex items-center justify-center text-medical-blue group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
                         {r.icon}

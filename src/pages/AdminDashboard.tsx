@@ -119,9 +119,10 @@ function AdminMain() {
       fetchData(); // Refresh list
     } catch (e) {
       console.error('Error admitting patient:', e);
-      toast.error('Failed to admit patient');
+      toast.error('Failed to admit patient. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const filteredDoctors = selectedDeptId

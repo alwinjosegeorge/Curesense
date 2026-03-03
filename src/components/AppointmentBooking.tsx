@@ -230,9 +230,10 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
       fetchAppointments();
     } catch (e) {
       console.error('Error booking appointment:', e);
-      toast.error('Failed to book appointment');
+      toast.error('Failed to book appointment. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
