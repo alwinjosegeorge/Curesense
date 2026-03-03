@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <NotificationPanel />
             <div className="w-8 h-8 rounded-full gradient-medical flex items-center justify-center text-primary-foreground text-sm font-bold">
-              {user?.name.charAt(0)}
+              {user?.name?.[0] || '?'}
             </div>
           </div>
         </header>

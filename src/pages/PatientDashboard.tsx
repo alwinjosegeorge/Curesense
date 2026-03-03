@@ -38,7 +38,7 @@ function PatientMain() {
           vitals (*),
           prescriptions (*),
           lab_reports (*),
-          doctors (name)
+          doctors!assigned_doctor_id (name)
         `)
         .limit(1)
         .single();

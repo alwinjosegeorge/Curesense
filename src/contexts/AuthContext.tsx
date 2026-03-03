@@ -55,15 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (data && !error) {
+      const d = data as any;
       setUser({
-        id: data.id,
-        name: data.name || 'User',
-        role: data.role as UserRole,
-        idNumber: data.id_number
+        id: d.id,
+        name: d.full_name || 'User',
+        role: (d.role || '').toLowerCase() as UserRole,
+        idNumber: d.id_number
       });
     }
   };
@@ -71,27 +72,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifier: string, password: string, role: UserRole): Promise<boolean> => {
     setLoading(true);
     try {
+      // Custom logic for patients
+      if (role === 'patient') {
+        const { data: patient, error: patientError } = await (supabase as any)
+          .from('patients')
+          .select('*')
+          .eq('admission_no', identifier)
+          .eq('date_of_birth', password)
+          .single();
+
+        if (patientError || !patient) {
+          throw new Error('Invalid Admission Number or Date of Birth.');
+        }
+
+        setUser({
+          id: patient.id,
+          name: patient.name,
+          role: 'patient',
+          idNumber: patient.admission_no
+        });
+        toast.success(`Welcome back, ${patient.name}`);
+        return true;
+      }
+
       let email = identifier;
 
       // If it's an ID (like DOC001 or ADM001) rather than an email, look up the real email
       if (!identifier.includes('@')) {
-        const { data: profile, error: lookupError } = await supabase
+        const { data: profile, error: lookupError } = await (supabase as any)
           .from('profiles')
           .select('email')
           .eq('id_number', identifier)
           .single();
 
-        if (lookupError || !profile?.email) {
+        if (lookupError || !(profile as any)?.email) {
           throw new Error('Invalid ID or account not found.');
         }
-        email = profile.email;
+        email = (profile as any).email;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
       // Verify role matches
-      const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', data.user.id).single();
+      const { data: profile } = await (supabase as any).from('profiles').select('role').eq('user_id', data.user.id).single();
       if (profile?.role !== role) {
         await supabase.auth.signOut();
         toast.error(`Account found, but it is not a ${role} account.`);

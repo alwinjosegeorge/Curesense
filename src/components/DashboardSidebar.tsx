@@ -47,7 +47,7 @@ export default function DashboardSidebar() {
   const navigate = useNavigate();
   if (!user) return null;
 
-  const items = navByRole[user.role];
+  const items = navByRole[user.role] || [];
 
   return (
     <aside className="w-64 min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -66,10 +66,9 @@ export default function DashboardSidebar() {
         {items.map((item) => (
           <NavLink key={item.path} to={item.path} end={item.path === `/${user.role}`}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-primary'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                ? 'bg-sidebar-accent text-sidebar-primary'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
               }`
             }>
             {item.icon}
@@ -82,10 +81,10 @@ export default function DashboardSidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-sm font-bold">
-            {user.name.charAt(0)}
+            {user.name?.[0] || '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+            <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name || 'User'}</div>
             <div className="text-xs text-sidebar-foreground/50 capitalize">{user.role}</div>
           </div>
         </div>

@@ -31,7 +31,7 @@ function NurseMain() {
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('*, doctors(name)');
+        .select('*, doctors!assigned_doctor_id(name)');
 
       if (error) throw error;
 
@@ -131,8 +131,8 @@ function NurseMain() {
   }
 
   const filteredPatients = patients.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.admissionNo.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.admissionNo || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

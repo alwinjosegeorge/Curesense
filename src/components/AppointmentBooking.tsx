@@ -48,8 +48,15 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [form, setForm] = useState({
     patient: '',
+    isNewPatient: false,
+    age: '',
+    gender: '',
+    dob: '',
+    contact: '',
     departmentId: '',
     doctorId: '',
     date: '',
@@ -65,13 +72,51 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
 
   const fetchMetadata = async () => {
     try {
-      const { data: deptData } = await supabase.from('departments').select('*').order('name');
-      const { data: docData } = await supabase.from('doctors').select('*').order('name');
+      const { data: deptData } = await (supabase as any).from('departments').select('*').order('name');
+      const { data: docData } = await (supabase as any).from('doctors').select('*').order('name');
       if (deptData) setDepartments(deptData);
       if (docData) setDoctors(docData);
     } catch (e) {
       console.error('Error fetching metadata:', e);
     }
+  };
+
+  const handlePatientSearch = async (val: string) => {
+    setForm({ ...form, patient: val, isNewPatient: false });
+    if (val.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const { data } = await (supabase as any)
+        .from('patients')
+        .select('id, name, age, gender, date_of_birth, contact')
+        .ilike('name', `%${val}%`)
+        .limit(5);
+
+      if (data) {
+        setSuggestions(data);
+        setShowSuggestions(data.length > 0);
+      }
+    } catch (e) {
+      console.error('Search error:', e);
+    }
+  };
+
+  const selectPatient = (p: any) => {
+    setForm({
+      ...form,
+      patient: p.name,
+      isNewPatient: false,
+      age: p.age?.toString() || '',
+      gender: p.gender || '',
+      dob: p.date_of_birth || '',
+      contact: p.contact || ''
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
   const fetchAppointments = async () => {
@@ -113,12 +158,39 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Find patient by name (demo fallback) or use first patient
-      const { data: pData } = await supabase.from('patients').select('id').ilike('name', `%${form.patient}%`).limit(1);
-      const patientId = pData && pData.length > 0 ? pData[0].id : null;
+      let patientId: string | null = null;
+
+      if (form.isNewPatient) {
+        // Create new patient
+        const nextId = (Date.now() % 1000);
+        const admNo = `ADM-NEW-${nextId}`;
+        const tknNo = `TKN-RES-${nextId}`;
+
+        const { data: newPatient, error: pError } = await supabase
+          .from('patients')
+          .insert({
+            name: form.patient,
+            age: parseInt(form.age) || 0,
+            gender: form.gender,
+            contact: form.contact,
+            date_of_birth: form.dob,
+            admission_no: admNo,
+            token_no: tknNo,
+            status: 'Admitted'
+          })
+          .select()
+          .single();
+
+        if (pError) throw pError;
+        patientId = newPatient.id;
+      } else {
+        // Find patient by name (demo fallback) or use first patient
+        const { data: pData } = await supabase.from('patients').select('id').ilike('name', `%${form.patient}%`).limit(1);
+        patientId = pData && pData.length > 0 ? pData[0].id : null;
+      }
 
       if (!patientId) {
-        toast.error('Patient not found. Please enter a valid patient name.');
+        toast.error('Patient not found. Check name or select "New Patient".');
         setSubmitting(false);
         return;
       }
@@ -141,7 +213,20 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
       if (error) throw error;
 
       toast.success(`Appointment booked! Token: ${tokenNo}`);
-      setForm({ patient: '', departmentId: '', doctorId: '', date: '', time: '', type: 'Consultation', notes: '' });
+      setForm({
+        patient: '',
+        isNewPatient: false,
+        age: '',
+        gender: '',
+        dob: '',
+        contact: '',
+        departmentId: '',
+        doctorId: '',
+        date: '',
+        time: '',
+        type: 'Consultation',
+        notes: ''
+      });
       fetchAppointments();
     } catch (e) {
       console.error('Error booking appointment:', e);
@@ -161,11 +246,75 @@ export default function AppointmentBooking({ role = 'admin' }: { role?: string }
           </div>
           <form onSubmit={handleBook} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <Label className="flex items-center gap-1.5 text-xs"><User className="w-3.5 h-3.5" />Patient Name</Label>
-                <Input value={form.patient} onChange={e => setForm({ ...form, patient: e.target.value })} placeholder="Patient name" className="mt-1" required />
-                <p className="text-[10px] text-muted-foreground mt-1">Must match an existing patient name for this demo.</p>
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex items-center gap-4 mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.isNewPatient}
+                    onChange={e => setForm({ ...form, isNewPatient: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-medical-blue focus:ring-medical-blue"
+                  />
+                  Is this a new patient?
+                </label>
               </div>
+              <div className="relative">
+                <Label className="flex items-center gap-1.5 text-xs"><User className="w-3.5 h-3.5" />Patient Name</Label>
+                <Input
+                  value={form.patient}
+                  onChange={e => handlePatientSearch(e.target.value)}
+                  onFocus={() => form.patient.length >= 2 && setShowSuggestions(suggestions.length > 0)}
+                  placeholder="Patient name"
+                  className="mt-1"
+                  required
+                />
+
+                {showSuggestions && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                    {suggestions.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors border-b border-border last:border-0"
+                        onClick={() => selectPatient(p)}
+                      >
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{p.age}y · {p.gender} · {p.contact}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {form.isNewPatient && (
+                <>
+                  <div>
+                    <Label className="text-xs">Age</Label>
+                    <Input type="number" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} placeholder="Age" className="mt-1" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Date of Birth</Label>
+                    <Input type="date" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} className="mt-1" required />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Gender</Label>
+                    <select
+                      className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={form.gender}
+                      onChange={e => setForm({ ...form, gender: e.target.value })}
+                      required
+                    >
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Contact Number</Label>
+                    <Input value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="Phone" className="mt-1" required />
+                  </div>
+                </>
+              )}
               <div>
                 <Label className="text-xs">Department</Label>
                 <Select value={form.departmentId} onValueChange={v => setForm({ ...form, departmentId: v, doctorId: '' })}>

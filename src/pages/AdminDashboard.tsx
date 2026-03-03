@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { logAction } from '@/utils/audit';
 import { useLocation } from 'react-router-dom';
@@ -17,10 +16,12 @@ import type { Patient } from '@/data/mockData';
 function AdminMain() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [stats, setStats] = useState({ admissions: 0, tokens: 0, appointments: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '' });
+  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '' });
 
   useEffect(() => {
     fetchData();
@@ -34,14 +35,18 @@ function AdminMain() {
         .from('patients')
         .select(`
           *,
-          doctors (name)
+          doctors!assigned_doctor_id (name)
         `)
         .order('created_at', { ascending: false });
 
       if (pError) throw pError;
 
-      // Fetch all doctors for the dropdown
-      const { data: dData } = await supabase.from('doctors').select('id, name').order('name');
+      // Fetch all departments
+      const { data: deptData } = await (supabase as any).from('departments').select('id, name').order('name');
+      if (deptData) setDepartments(deptData);
+
+      // Fetch all doctors initially (will filter in render if needed)
+      const { data: dData } = await (supabase as any).from('doctors').select('id, name, department_id').order('name');
       if (dData) setDoctors(dData);
 
       // Fetch Today's stats
@@ -70,7 +75,7 @@ function AdminMain() {
       setPatients(transformed);
       setStats({
         admissions: pData?.length || 0,
-        tokens: pData?.filter(p => p.admission_date === today).length || 12, // fallback or real
+        tokens: pData?.filter(p => p.admission_date === today).length || 0,
         appointments: aptCount || 0
       });
     } catch (e) {
@@ -98,17 +103,19 @@ function AdminMain() {
           contact: form.contact,
           symptoms: form.symptoms.split(',').map(s => s.trim()),
           assigned_doctor_id: form.doctor_id,
+          date_of_birth: form.dob,
           admission_no: admNo,
           token_no: tokenNo,
           status: 'Admitted'
         })
-        .select(); // Select the inserted data to get the ID
+        .select();
 
       if (error) throw error;
 
       logAction('Patient Admission', 'Patient', data[0].id, { name: form.name });
       toast.success(`Patient admitted: ${form.name}`);
-      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '' });
+      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '' });
+      setSelectedDeptId('');
       fetchData(); // Refresh list
     } catch (e) {
       console.error('Error admitting patient:', e);
@@ -116,6 +123,10 @@ function AdminMain() {
     }
     setSubmitting(false);
   };
+
+  const filteredDoctors = selectedDeptId
+    ? doctors.filter(d => d.department_id === selectedDeptId)
+    : doctors;
 
   if (loading) {
     return (
@@ -160,34 +171,65 @@ function AdminMain() {
                 <Input type="number" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} placeholder="Age" className="mt-1" required />
               </div>
               <div>
-                <Label>Gender</Label>
-                <Select value={form.gender} onValueChange={v => setForm({ ...form, gender: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Date of Birth</Label>
+                <Input type="date" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} className="mt-1" required />
               </div>
               <div className="col-span-2">
-                <Label>Contact Number</Label>
-                <Input value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="+91 XXXXX XXXXX" className="mt-1" required />
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={form.gender}
+                  onChange={e => setForm({ ...form, gender: e.target.value })}
+                  required
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div className="col-span-2">
-                <Label>Initial Symptoms</Label>
-                <Textarea value={form.symptoms} onChange={e => setForm({ ...form, symptoms: e.target.value })} placeholder="Describe symptoms (comma separated)..." className="mt-1" rows={3} required />
+                <Label htmlFor="contact">Contact Number</Label>
+                <Input id="contact" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="+91 XXXXX XXXXX" className="mt-1" required />
               </div>
               <div className="col-span-2">
-                <Label>Assign Doctor</Label>
-                <Select value={form.doctor_id} onValueChange={v => setForm({ ...form, doctor_id: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select doctor" /></SelectTrigger>
-                  <SelectContent>
-                    {doctors.map(d => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="symptoms">Initial Symptoms</Label>
+                <Textarea id="symptoms" value={form.symptoms} onChange={e => setForm({ ...form, symptoms: e.target.value })} placeholder="Describe symptoms (comma separated)..." className="mt-1" rows={3} required />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="dept">Department</Label>
+                <select
+                  id="dept"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={selectedDeptId}
+                  onChange={e => {
+                    setSelectedDeptId(e.target.value);
+                    setForm({ ...form, doctor_id: '' });
+                  }}
+                  required
+                >
+                  <option value="">Select department</option>
+                  {departments.map(dept => (
+                    <option key={dept.id} value={dept.id}>{dept.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="doctor">Assign Doctor</Label>
+                <select
+                  id="doctor"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={form.doctor_id}
+                  onChange={e => setForm({ ...form, doctor_id: e.target.value })}
+                  disabled={!selectedDeptId}
+                  required
+                >
+                  <option value="">{selectedDeptId ? "Select doctor" : "First select department"}</option>
+                  {filteredDoctors.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <Button type="submit" disabled={submitting} className="w-full gradient-medical text-primary-foreground hover:opacity-90">
@@ -269,7 +311,7 @@ export default function AdminDashboard() {
   const fetchPatients = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('patients').select('*, doctors(name)').order('name');
+      const { data, error } = await supabase.from('patients').select('*, doctors!assigned_doctor_id(name)').order('name');
       if (error) throw error;
       setPatients((data || []).map(p => ({
         id: p.id,

@@ -50,7 +50,7 @@ function DoctorMain() {
           vitals (*),
           prescriptions (*),
           lab_reports (*),
-          doctors (name)
+          doctors!assigned_doctor_id (name)
         `);
 
       if (patientsError) throw patientsError;
@@ -244,7 +244,7 @@ function DoctorMain() {
               <button key={patient.id} onClick={() => setSelectedPatient(patient)}
                 className={`w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 ${selectedPatient?.id === patient.id ? 'bg-muted/70' : ''}`}>
                 <div className="w-10 h-10 rounded-full gradient-medical flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  {patient.name.charAt(0)}
+                  {patient.name?.[0] || '?'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-card-foreground truncate">{patient.name}</div>
