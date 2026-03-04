@@ -15,7 +15,21 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ role, children }: { role: string; children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center animate-pulse">
+          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 3a1 1 0 011 1v5.586l3.707 3.707a1 1 0 01-1.414 1.414l-4-4A1 1 0 0111 12V6a1 1 0 011-1z" />
+          </svg>
+        </div>
+        <p className="text-sm text-muted-foreground font-medium">Loading CureSense...</p>
+      </div>
+    </div>
+  );
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role !== role) return <Navigate to={`/${user?.role}`} replace />;
   return <>{children}</>;
