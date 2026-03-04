@@ -21,7 +21,11 @@ function AdminMain() {
   const [stats, setStats] = useState({ admissions: 0, tokens: 0, appointments: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '', email: '', password: '' });
+  const [form, setForm] = useState({
+    name: '', age: '', gender: '', contact: '', dob: '',
+    address: '', city: '', pinCode: '', bloodGroup: '',
+    emergencyName: '', emergencyPhone: '', emergencyRelation: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -88,35 +92,11 @@ function AdminMain() {
   const handleAdmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-
     try {
       const nextId = (patients.length + 1);
       const admNo = `ADM${String(nextId).padStart(3, '0')}`;
       const tokenNo = `TKN-${String(40 + nextId).padStart(4, '0')}`;
 
-      // 1. Create auth account for the patient
-      const email = form.email.trim();
-      const password = form.password.trim();
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: form.name, role: 'patient' } }
-      });
-      if (authError) throw new Error(`Auth error: ${authError.message}`);
-      const newUserId = authData.user?.id;
-
-      // 2. Create profiles row for the patient
-      if (newUserId) {
-        await (supabase as any).from('profiles').upsert({
-          user_id: newUserId,
-          full_name: form.name,
-          email,
-          role: 'patient',
-          id_number: admNo,
-        });
-      }
-
-      // 3. Insert patient record linked to auth user
       const { data, error } = await supabase
         .from('patients')
         .insert({
@@ -124,21 +104,28 @@ function AdminMain() {
           age: parseInt(form.age),
           gender: form.gender,
           contact: form.contact,
-          symptoms: form.symptoms.split(',').map(s => s.trim()),
-          assigned_doctor_id: form.doctor_id || null,
           date_of_birth: form.dob,
           admission_no: admNo,
           token_no: tokenNo,
           status: 'Admitted',
-          user_id: newUserId || null,
-        })
+          address: form.address || null,
+          city: form.city || null,
+          pin_code: form.pinCode || null,
+          blood_group: form.bloodGroup || null,
+          emergency_contact_name: form.emergencyName || null,
+          emergency_contact_phone: form.emergencyPhone || null,
+          emergency_contact_relation: form.emergencyRelation || null,
+        } as any)
         .select();
 
       if (error) throw error;
 
       logAction('Patient Admission', 'Patient', data[0].id, { name: form.name });
-      toast.success(`✅ Patient admitted! Login: ${email} / ${password}`, { duration: 8000 });
-      setForm({ name: '', age: '', gender: '', contact: '', symptoms: '', doctor_id: '', dob: '', email: '', password: '' });
+      toast.success(
+        `✅ Patient admitted! Tell patient: Login ID = ${admNo} · Password = DOB (${form.dob})`,
+        { duration: 10000 }
+      );
+      setForm({ name: '', age: '', gender: '', contact: '', dob: '', address: '', city: '', pinCode: '', bloodGroup: '', emergencyName: '', emergencyPhone: '', emergencyRelation: '' });
       setSelectedDeptId('');
       fetchData();
     } catch (e: any) {
@@ -185,87 +172,90 @@ function AdminMain() {
             <UserPlus className="w-5 h-5 text-accent" />
             <h3 className="font-display font-semibold text-card-foreground text-lg">New Patient Admission</h3>
           </div>
-          <form onSubmit={handleAdmit} className="space-y-4">
+          <form onSubmit={handleAdmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Section: Personal Details */}
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Personal Details</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label>Patient Name</Label>
-                <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" className="mt-1" required />
+                <Label>Full Name *</Label>
+                <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Patient full name" className="mt-1" required />
               </div>
               <div>
-                <Label>Age</Label>
+                <Label>Age *</Label>
                 <Input type="number" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} placeholder="Age" className="mt-1" required />
               </div>
               <div>
-                <Label>Date of Birth</Label>
+                <Label>Date of Birth * <span className="text-muted-foreground font-normal">(used as login password)</span></Label>
                 <Input type="date" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} className="mt-1" required />
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="gender">Gender</Label>
-                <select
-                  id="gender"
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={form.gender}
-                  onChange={e => setForm({ ...form, gender: e.target.value })}
-                  required
-                >
+              <div>
+                <Label>Gender *</Label>
+                <select className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} required>
                   <option value="">Select gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="contact">Contact Number</Label>
-                <Input id="contact" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="+91 XXXXX XXXXX" className="mt-1" required />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="symptoms">Initial Symptoms</Label>
-                <Textarea id="symptoms" value={form.symptoms} onChange={e => setForm({ ...form, symptoms: e.target.value })} placeholder="Describe symptoms (comma separated)..." className="mt-1" rows={3} required />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="dept">Department</Label>
-                <select
-                  id="dept"
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={selectedDeptId}
-                  onChange={e => {
-                    setSelectedDeptId(e.target.value);
-                    setForm({ ...form, doctor_id: '' });
-                  }}
-                  required
-                >
-                  <option value="">Select department</option>
-                  {departments.map(dept => (
-                    <option key={dept.id} value={dept.id}>{dept.name}</option>
-                  ))}
+              <div>
+                <Label>Blood Group</Label>
+                <select className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={form.bloodGroup} onChange={e => setForm({ ...form, bloodGroup: e.target.value })}>
+                  <option value="">Select blood group</option>
+                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
-                <Label htmlFor="doctor">Assign Doctor</Label>
-                <select
-                  id="doctor"
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={form.doctor_id}
-                  onChange={e => setForm({ ...form, doctor_id: e.target.value })}
-                  disabled={!selectedDeptId}
-                  required
-                >
-                  <option value="">{selectedDeptId ? "Select doctor" : "First select department"}</option>
-                  {filteredDoctors.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="email">Patient Login Email *</Label>
-                <Input id="email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="patient@hospital.com" className="mt-1" required />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="password">Login Password *</Label>
-                <Input id="password" type="text" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" className="mt-1" required minLength={6} />
-                <p className="text-xs text-muted-foreground mt-1">Share these credentials with the patient. They will use them to log in.</p>
+                <Label>Contact Number *</Label>
+                <Input value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="+91 XXXXX XXXXX" className="mt-1" required />
               </div>
             </div>
+
+            {/* Section: Address */}
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Address</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>Address</Label>
+                <Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="House No, Street, Area" className="mt-1" />
+              </div>
+              <div>
+                <Label>City</Label>
+                <Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="City" className="mt-1" />
+              </div>
+              <div>
+                <Label>Pin Code</Label>
+                <Input value={form.pinCode} onChange={e => setForm({ ...form, pinCode: e.target.value })} placeholder="686001" className="mt-1" maxLength={6} />
+              </div>
+            </div>
+
+            {/* Section: Emergency Contact */}
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Emergency Contact</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Contact Name</Label>
+                <Input value={form.emergencyName} onChange={e => setForm({ ...form, emergencyName: e.target.value })} placeholder="Name" className="mt-1" />
+              </div>
+              <div>
+                <Label>Relation</Label>
+                <select className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={form.emergencyRelation} onChange={e => setForm({ ...form, emergencyRelation: e.target.value })}>
+                  <option value="">Select</option>
+                  {['Spouse', 'Parent', 'Child', 'Sibling', 'Friend', 'Other'].map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Label>Emergency Phone</Label>
+                <Input value={form.emergencyPhone} onChange={e => setForm({ ...form, emergencyPhone: e.target.value })} placeholder="+91 XXXXX XXXXX" className="mt-1" />
+              </div>
+            </div>
+
+            {/* Login info note */}
+            <div className="rounded-lg border border-medical-blue-light bg-medical-blue-light/20 p-3">
+              <p className="text-xs text-medical-blue font-medium">🔑 Patient Login Info (tell the patient after admission)</p>
+              <p className="text-xs text-muted-foreground mt-1">Login ID: <strong>Admission Number</strong> (auto-generated) · Password: <strong>Date of Birth</strong></p>
+            </div>
+
             <Button type="submit" disabled={submitting} className="w-full gradient-medical text-primary-foreground hover:opacity-90">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {submitting ? 'Admitting...' : 'Admit Patient'}

@@ -14,8 +14,10 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import type { Patient } from '@/data/mockData';
 import { logAction } from '@/utils/audit';
+import { useAuth } from '@/contexts/AuthContext';
 
 function PatientMain() {
+  const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [symptoms, setSymptoms] = useState('');
@@ -30,8 +32,8 @@ function PatientMain() {
   const fetchPatientData = async () => {
     setLoading(true);
     try {
-      // Get currently logged-in auth user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Patient login sets user.id = patients.id (primary key from patients table)
+      const patientId = user?.id;
 
       let query = supabase
         .from('patients')
@@ -43,11 +45,9 @@ function PatientMain() {
           doctors!assigned_doctor_id (name)
         `);
 
-      if (authUser?.id) {
-        // Fetch patient whose user_id matches the logged-in user
-        query = query.eq('user_id', authUser.id);
+      if (patientId) {
+        query = query.eq('id', patientId);
       } else {
-        // Fallback: first patient (for demo/testing purposes)
         query = query.limit(1);
       }
 
