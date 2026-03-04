@@ -267,6 +267,39 @@ function PatientMain() {
         </div>
       </div>
 
+      {/* Vitals History */}
+      {patient.vitals.length > 0 && (
+        <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center gap-2">
+            <Activity className="w-4 h-4 text-accent" />
+            <h3 className="font-display font-semibold text-card-foreground">Vitals History (recorded by doctor)</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  {['Date', 'BP', 'Sugar', 'Temp', 'O₂', 'Heart Rate'].map(h => (
+                    <th key={h} className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[...patient.vitals].reverse().map((v, i) => (
+                  <tr key={i} className="hover:bg-muted/20">
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{v.timestamp ? new Date(v.timestamp).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-2 font-medium">{v.bp?.systolic || '—'}/{v.bp?.diastolic || '—'}</td>
+                    <td className="px-4 py-2">{v.sugar || '—'}</td>
+                    <td className="px-4 py-2">{v.temperature || '—'}</td>
+                    <td className="px-4 py-2">{v.oxygen || '—'}</td>
+                    <td className="px-4 py-2">{v.heartRate || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <VitalsChart vitals={patient.vitals} type="bp" />
         <VitalsChart vitals={patient.vitals} type="sugar" />
@@ -303,6 +336,6 @@ export default function PatientDashboard() {
 
   if (location.pathname === '/patient/vitals') return <DashboardLayout><HomeMonitoring /></DashboardLayout>;
   if (location.pathname === '/patient/appointments') return <DashboardLayout><AppointmentBooking role="patient" /></DashboardLayout>;
-
+  // prescriptions and labs sub-routes all show the main dashboard (which has both sections)
   return <DashboardLayout><PatientMain /></DashboardLayout>;
 }
