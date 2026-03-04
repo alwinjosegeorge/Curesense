@@ -138,30 +138,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let email = identifier;
 
-      // If it's an ID (like DOC001 or ADM001) rather than an email, look up the real email
-      if (!identifier.includes('@')) {
-        const { data: profile, error: lookupError } = await (supabase as any)
-          .from('profiles')
-          .select('email')
-          .eq('id_number', identifier)
-          .single();
+      // Single profiles lookup: get both email AND role together (was 2 separate lookups before)
+      const { data: profile, error: lookupError } = await (supabase as any)
+        .from('profiles')
+        .select('email, role')
+        .eq('id_number', identifier)
+        .single();
 
-        if (lookupError || !(profile as any)?.email) {
-          throw new Error('Invalid ID or account not found.');
-        }
-        email = (profile as any).email;
+      if (lookupError || !profile?.email) {
+        throw new Error('Account not found. Check your ID.');
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-
-      // Verify role matches
-      const { data: profile } = await (supabase as any).from('profiles').select('role').eq('user_id', data.user.id).single();
-      if (profile?.role !== role) {
-        await supabase.auth.signOut();
-        toast.error(`Account found, but it is not a ${role} account.`);
-        return false;
+      // Role mismatch — fail fast before even attempting auth
+      if (profile.role !== role) {
+        throw new Error(`This ID belongs to a ${profile.role} account, not ${role}.`);
       }
+
+      email = profile.email;
+
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
 
       return true;
     } catch (e: any) {
