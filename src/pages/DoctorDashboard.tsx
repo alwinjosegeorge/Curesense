@@ -635,6 +635,8 @@ function DoctorMain() {
   const [viewingLab, setViewingLab] = useState<any | null>(null);
   const [doctorDept, setDoctorDept] = useState('Internal Medicine / General Medicine');
   const [doctorDbId, setDoctorDbId] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [appointmentCount, setAppointmentCount] = useState(0);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -737,6 +739,16 @@ function DoctorMain() {
         acknowledged: a.acknowledged,
       }));
       setAlerts(transformedAlerts);
+
+      // Appointment count for today
+      if (doctorRow?.id) {
+        const today = new Date().toISOString().split('T')[0];
+        const { count } = await supabase.from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('doctor_id', doctorRow.id)
+          .eq('appointment_date', today);
+        setAppointmentCount(count || 0);
+      }
     } catch (e) {
       console.error('Error fetching data:', e);
       toast.error('Failed to load patient data');
@@ -804,7 +816,7 @@ function DoctorMain() {
           { label: 'My Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'bg-blue-100 text-blue-600' },
           { label: 'Critical', value: criticalCount, icon: <AlertTriangle className="w-5 h-5" />, color: 'bg-red-100 text-red-600' },
           { label: 'Active Alerts', value: activeAlerts.length, icon: <Activity className="w-5 h-5" />, color: 'bg-amber-100 text-amber-600' },
-          { label: 'Appointments', value: '7', icon: <Clock className="w-5 h-5" />, color: 'bg-emerald-100 text-emerald-600' },
+          { label: "Today's Appointments", value: appointmentCount, icon: <Clock className="w-5 h-5" />, color: 'bg-emerald-100 text-emerald-600' },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="bg-card rounded-xl border border-border p-5 shadow-card">
@@ -829,28 +841,36 @@ function DoctorMain() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Patient List */}
         <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border space-y-2">
             <h3 className="font-semibold text-card-foreground">My Patients ({patients.length})</h3>
+            <input
+              value={patientSearch}
+              onChange={e => setPatientSearch(e.target.value)}
+              placeholder="🔍 Search by name or ID..."
+              className="w-full rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
           </div>
           <div className="divide-y divide-border max-h-[70vh] overflow-y-auto">
             {patients.length === 0 && (
               <div className="p-8 text-center text-muted-foreground text-sm">No patients assigned to you.</div>
             )}
-            {patients.map(patient => (
-              <button key={patient.id} onClick={() => { setSelectedPatient(patient); setAiResult(null); }}
-                className={`w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 ${selectedPatient?.id === patient.id ? 'bg-muted/70 border-l-2 border-accent' : ''}`}>
-                <div className="w-10 h-10 rounded-full gradient-medical flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {patient.name?.[0] || '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-card-foreground truncate">{patient.name}</div>
-                  <div className="text-xs text-muted-foreground">{patient.admissionNo} · {patient.age}y · {patient.gender}</div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${statusColor[patient.status] || 'bg-muted text-muted-foreground'}`}>
-                  {patient.status}
-                </span>
-              </button>
-            ))}
+            {patients
+              .filter(p => !patientSearch || p.name?.toLowerCase().includes(patientSearch.toLowerCase()) || p.admissionNo?.toLowerCase().includes(patientSearch.toLowerCase()))
+              .map(patient => (
+                <button key={patient.id} onClick={() => { setSelectedPatient(patient); setAiResult(null); }}
+                  className={`w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center gap-3 ${selectedPatient?.id === patient.id ? 'bg-muted/70 border-l-2 border-accent' : ''}`}>
+                  <div className="w-10 h-10 rounded-full gradient-medical flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {patient.name?.[0] || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-card-foreground truncate">{patient.name}</div>
+                    <div className="text-xs text-muted-foreground">{patient.admissionNo} · {patient.age}y · {patient.gender}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${statusColor[patient.status] || 'bg-muted text-muted-foreground'}`}>
+                    {patient.status}
+                  </span>
+                </button>
+              ))}
           </div>
         </div>
 
@@ -859,23 +879,56 @@ function DoctorMain() {
           {selectedPatient ? (
             <div className="bg-card rounded-xl border border-border shadow-card">
               {/* Header */}
-              <div className="p-5 border-b border-border flex items-start justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-card-foreground">{selectedPatient.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {selectedPatient.admissionNo} · Token: {selectedPatient.tokenNo} · Admitted: {selectedPatient.admissionDate}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Symptoms: {selectedPatient.symptoms.join(', ')}</p>
-                  {selectedPatient.diagnosis && (
-                    <p className="text-sm font-semibold text-accent mt-1">Dx: {selectedPatient.diagnosis}</p>
-                  )}
+              <div className="p-5 border-b border-border">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-xl font-bold text-card-foreground">{selectedPatient.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {selectedPatient.admissionNo} · Token: {selectedPatient.tokenNo} · Admitted: {selectedPatient.admissionDate}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{selectedPatient.contact}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Status dropdown */}
+                    <select
+                      value={selectedPatient.status}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value;
+                        await supabase.from('patients').update({ status: newStatus }).eq('id', selectedPatient.id);
+                        setSelectedPatient(p => p ? { ...p, status: newStatus as any } : p);
+                        setPatients(ps => ps.map(p => p.id === selectedPatient.id ? { ...p, status: newStatus as any } : p));
+                        toast.success(`Status updated to ${newStatus}`);
+                      }}
+                      className={`text-xs px-2 py-1.5 rounded-full font-semibold border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent ${statusColor[selectedPatient.status] || 'bg-muted text-muted-foreground'}`}
+                    >
+                      <option value="Admitted">Admitted</option>
+                      <option value="Under Observation">Under Observation</option>
+                      <option value="Critical">Critical</option>
+                      <option value="Stable">Stable</option>
+                      <option value="Discharged">Discharged</option>
+                    </select>
+                    <Button size="sm" onClick={() => setShowAddData(true)} className="gradient-medical text-primary-foreground text-xs gap-1">
+                      <Plus className="w-3.5 h-3.5" /> Add Data
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${statusColor[selectedPatient.status]}`}>
-                    {selectedPatient.status}
-                  </span>
-                  <Button size="sm" onClick={() => setShowAddData(true)} className="gradient-medical text-primary-foreground text-xs gap-1">
-                    <Plus className="w-3.5 h-3.5" /> Add Data
+                {/* Diagnosis inline editor */}
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    defaultValue={selectedPatient.diagnosis || ''}
+                    key={selectedPatient.id}
+                    placeholder="Type diagnosis here and click Save..."
+                    className="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                    id="diagnosis-input"
+                  />
+                  <Button size="sm" variant="outline" className="text-xs shrink-0"
+                    onClick={async () => {
+                      const val = (document.getElementById('diagnosis-input') as HTMLInputElement)?.value;
+                      await supabase.from('patients').update({ diagnosis: val }).eq('id', selectedPatient.id);
+                      setSelectedPatient(p => p ? { ...p, diagnosis: val } : p);
+                      toast.success('Diagnosis saved ✓');
+                    }}>
+                    Save Dx
                   </Button>
                 </div>
               </div>

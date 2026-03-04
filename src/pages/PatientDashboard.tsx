@@ -173,8 +173,21 @@ function PatientMain() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="gradient-hero rounded-2xl p-6 text-primary-foreground">
-        <h2 className="text-2xl font-display font-bold">Welcome, {patient.name}</h2>
-        <p className="opacity-80 mt-1">Admission: {patient.admissionNo} · Doctor: {patient.assignedDoctor}</p>
+        <div className="flex items-start justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="text-2xl font-display font-bold">Welcome, {patient.name}</h2>
+            <p className="opacity-80 mt-1">Admission: {patient.admissionNo} · Doctor: {patient.assignedDoctor}</p>
+          </div>
+          <span className="bg-primary-foreground/20 text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur">
+            {patient.status}
+          </span>
+        </div>
+        {patient.diagnosis && (
+          <div className="mt-3 bg-primary-foreground/10 backdrop-blur rounded-xl px-4 py-2.5 border border-primary-foreground/20">
+            <p className="text-xs font-semibold opacity-70 uppercase tracking-wide">Doctor's Diagnosis</p>
+            <p className="font-semibold mt-0.5">{patient.diagnosis}</p>
+          </div>
+        )}
         <div className="flex gap-4 mt-4">
           <div className="bg-primary-foreground/10 backdrop-blur rounded-lg px-4 py-2 text-center">
             <div className="text-2xl font-bold">{patient.prescriptions.filter(r => r.status === 'Active').length}</div>
@@ -187,6 +200,10 @@ function PatientMain() {
           <div className="bg-primary-foreground/10 backdrop-blur rounded-lg px-4 py-2 text-center">
             <div className="text-2xl font-bold">{latestVitals.oxygen}%</div>
             <div className="text-xs opacity-70">O₂ Level</div>
+          </div>
+          <div className="bg-primary-foreground/10 backdrop-blur rounded-lg px-4 py-2 text-center">
+            <div className="text-2xl font-bold">{patient.vitals.length}</div>
+            <div className="text-xs opacity-70">Vitals Records</div>
           </div>
         </div>
       </motion.div>

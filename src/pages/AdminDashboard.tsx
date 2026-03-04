@@ -151,11 +151,13 @@ function AdminMain() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Total Admissions', value: stats.admissions, icon: <Users className="w-5 h-5" />, color: 'bg-medical-blue-light text-medical-blue' },
+          { label: 'Total Patients', value: stats.admissions, icon: <Users className="w-5 h-5" />, color: 'bg-medical-blue-light text-medical-blue' },
           { label: "Today's Admissions", value: stats.tokens, icon: <Hash className="w-5 h-5" />, color: 'bg-medical-teal-light text-medical-teal' },
-          { label: 'Today Reservations', value: stats.appointments, icon: <Calendar className="w-5 h-5" />, color: 'bg-risk-moderate-bg text-risk-moderate' },
+          { label: "Today's Appointments", value: stats.appointments, icon: <Calendar className="w-5 h-5" />, color: 'bg-risk-moderate-bg text-risk-moderate' },
+          { label: 'Critical', value: patients.filter(p => p.status === 'Critical').length, icon: <span className="text-lg">🚨</span>, color: 'bg-risk-critical-bg text-risk-critical' },
+          { label: 'Discharged', value: patients.filter(p => p.status === 'Discharged').length, icon: <span className="text-lg">✅</span>, color: 'bg-green-100 text-green-700' },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="bg-card rounded-xl border border-border p-5 shadow-card">
@@ -363,34 +365,61 @@ export default function AdminDashboard() {
 
   if (location.pathname === '/admin/appointments') return <DashboardLayout><AppointmentBooking role="admin" /></DashboardLayout>;
   if (location.pathname === '/admin/settings') return <AdminSettings />;
-  if (location.pathname === '/admin/patients') return (
-    <DashboardLayout>
-      <div className="bg-card rounded-xl border border-border shadow-card">
-        <div className="p-4 border-b border-border">
-          <h3 className="font-display font-semibold text-card-foreground">All Patients</h3>
-        </div>
-        <div className="divide-y divide-border">
-          {loading ? (
-            <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-medical-blue" /></div>
-          ) : patients.map((p) => (
-            <div key={p.id} className="p-4 flex items-center justify-between">
-              <div>
-                <div className="font-medium text-sm text-card-foreground">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{p.admissionNo} · {p.age}y {p.gender}</div>
-              </div>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.status === 'Critical' ? 'bg-risk-critical-bg text-risk-critical' :
-                p.status === 'Admitted' ? 'bg-medical-blue-light text-medical-blue' :
-                  'bg-risk-moderate-bg text-risk-moderate'
-                }`}>{p.status}</span>
+  if (location.pathname === '/admin/patients') {
+    const [search, setSearch] = React.useState('');
+    const [statusFilter, setStatusFilter] = React.useState('All');
+    const filtered = patients.filter(p =>
+      (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.admissionNo.toLowerCase().includes(search.toLowerCase())) &&
+      (statusFilter === 'All' || p.status === statusFilter)
+    );
+    return (
+      <DashboardLayout>
+        <div className="bg-card rounded-xl border border-border shadow-card">
+          <div className="p-4 border-b border-border space-y-3">
+            <h3 className="font-display font-semibold text-card-foreground">All Patients ({filtered.length}/{patients.length})</h3>
+            <div className="flex gap-2">
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search name or ID..."
+                className="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm focus:outline-none">
+                <option value="All">All Status</option>
+                <option>Admitted</option>
+                <option>Under Observation</option>
+                <option>Critical</option>
+                <option>Stable</option>
+                <option>Discharged</option>
+              </select>
             </div>
-          ))}
-          {!loading && patients.length === 0 && (
-            <div className="p-8 text-center text-muted-foreground">No patients found.</div>
-          )}
+          </div>
+          <div className="divide-y divide-border">
+            {loading ? (
+              <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-medical-blue" /></div>
+            ) : filtered.map((p) => (
+              <div key={p.id} className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full gradient-medical flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {p.name?.[0]}
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm text-card-foreground">{p.name}</div>
+                    <div className="text-xs text-muted-foreground">{p.admissionNo} · {p.age}y {p.gender} · {p.assignedDoctor}</div>
+                    {p.diagnosis && <div className="text-xs text-accent mt-0.5">Dx: {p.diagnosis}</div>}
+                  </div>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${p.status === 'Critical' ? 'bg-risk-critical-bg text-risk-critical' :
+                  p.status === 'Discharged' ? 'bg-green-100 text-green-700' :
+                    p.status === 'Admitted' ? 'bg-medical-blue-light text-medical-blue' :
+                      'bg-risk-moderate-bg text-risk-moderate'}`}>{p.status}</span>
+              </div>
+            ))}
+            {!loading && filtered.length === 0 && (
+              <div className="p-8 text-center text-muted-foreground">No patients found.</div>
+            )}
+          </div>
         </div>
-      </div>
-    </DashboardLayout>
-  );
+      </DashboardLayout>
+    );
+  }
 
   return <DashboardLayout><AdminMain /></DashboardLayout>;
 }
