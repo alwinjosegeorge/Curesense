@@ -144,7 +144,12 @@ export default function AppointmentBooking({ role = 'admin', doctorId }: { role?
       });
       if (error) throw error;
 
-      toast.success(`Appointment booked! Token: ${tokenNo}`);
+      // Auto-assign patient to this doctor so they appear in "My Patients"
+      if (form.doctorId && patientId) {
+        await supabase.from('patients').update({ assigned_doctor_id: form.doctorId }).eq('id', patientId);
+      }
+
+      toast.success(`✅ Appointment booked! Token: ${tokenNo} · Patient added to your list.`);
       setForm({ patient: '', isNewPatient: false, contact: '', departmentId: '', doctorId: doctorId || '', date: '', time: '', type: 'Consultation', notes: '' });
       fetchAppointments();
     } catch (e) {
