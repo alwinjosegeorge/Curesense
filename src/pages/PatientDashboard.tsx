@@ -5,7 +5,7 @@ import HomeMonitoring from '@/components/HomeMonitoring';
 import VoiceInput from '@/components/VoiceInput';
 import AppointmentBooking from '@/components/AppointmentBooking';
 import { motion } from 'framer-motion';
-import { Activity, Calendar, FileText, Heart, Thermometer, User, Users, Brain, Info, LogOut, Settings, Bell, Share2, Clipboard, Plus, CheckCircle2, AlertTriangle, ShieldCheck, Loader2, FlaskConical } from 'lucide-react';
+import { Activity, Calendar, FileText, Heart, Thermometer, User, Users, Brain, Info, LogOut, Settings, Bell, Share2, Clipboard, Plus, CheckCircle2, AlertTriangle, ShieldCheck, Loader2, FlaskConical, Siren } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ function PatientMain() {
   const [sideEffects, setSideEffects] = useState('');
   const [submittingSymptom, setSubmittingSymptom] = useState(false);
   const [submittingSideEffect, setSubmittingSideEffect] = useState(false);
+  const [sendingAlert, setSendingAlert] = useState(false);
+  const [alertSent, setAlertSent] = useState(false);
 
   useEffect(() => {
     fetchPatientData();
@@ -146,6 +148,28 @@ function PatientMain() {
     setSubmittingSideEffect(false);
   };
 
+  const handleSendAlert = async () => {
+    if (!patient || sendingAlert || alertSent) return;
+    setSendingAlert(true);
+    try {
+      const { error } = await (supabase as any).from('alerts').insert({
+        patient_id: patient.id,
+        type: 'critical',
+        message: `🚨 EMERGENCY: ${patient.name} (${patient.admissionNo}) needs immediate assistance!`,
+        acknowledged: false,
+      });
+      if (error) throw error;
+      logAction('Emergency Alert', 'Patient', patient.id, { message: 'Patient triggered emergency alert' });
+      toast.error('🚨 Emergency alert sent to your doctor!', { duration: 6000 });
+      setAlertSent(true);
+      // Reset after 60s so they can send again if needed
+      setTimeout(() => setAlertSent(false), 60000);
+    } catch (e) {
+      toast.error('Failed to send alert. Please call the nurse directly.');
+    }
+    setSendingAlert(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -178,9 +202,32 @@ function PatientMain() {
             <h2 className="text-2xl font-display font-bold">Welcome, {patient.name}</h2>
             <p className="opacity-80 mt-1">Admission: {patient.admissionNo} · Doctor: {patient.assignedDoctor}</p>
           </div>
-          <span className="bg-primary-foreground/20 text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur">
-            {patient.status}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-primary-foreground/20 text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur">
+              {patient.status}
+            </span>
+            {/* ── SOS Emergency Alert Button ── */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              animate={alertSent ? {} : { boxShadow: ['0 0 0px #ff0000', '0 0 16px #ff0000', '0 0 0px #ff0000'] }}
+              transition={{ repeat: Infinity, duration: 1.8 }}
+              onClick={handleSendAlert}
+              disabled={sendingAlert || alertSent}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all ${alertSent
+                  ? 'bg-green-500/80 text-white cursor-not-allowed'
+                  : 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/50'
+                }`}
+            >
+              {sendingAlert ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : alertSent ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <Siren className="w-4 h-4" />
+              )}
+              {alertSent ? 'Alert Sent' : sendingAlert ? 'Sending...' : 'SOS Alert'}
+            </motion.button>
+          </div>
         </div>
         {patient.diagnosis && (
           <div className="mt-3 bg-primary-foreground/10 backdrop-blur rounded-xl px-4 py-2.5 border border-primary-foreground/20">

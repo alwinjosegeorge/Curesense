@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import VitalsChart from '@/components/VitalsChart';
 import RiskPanel from '@/components/RiskPanel';
@@ -638,7 +638,70 @@ function DoctorMain() {
   const [patientSearch, setPatientSearch] = useState('');
   const [appointmentCount, setAppointmentCount] = useState(0);
 
+  const patientsRef = useRef<Patient[]>([]);
+
   useEffect(() => { fetchData(); }, []);
+
+  // ── Realtime alert subscription (runs after fetchData sets patients) ──────
+  useEffect(() => {
+    const channel = (supabase as any)
+      .channel('doctor-patient-alerts')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'alerts' },
+        (payload: any) => {
+          const newAlert = payload.new;
+          const matchedPatient = patientsRef.current.find(p => p.id === newAlert.patient_id);
+          if (!matchedPatient) return; // Not this doctor's patient
+
+          // Play a beep sound using Web Audio API
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const playBeep = (freq: number, start: number, duration: number) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              osc.type = 'sine';
+              gain.gain.setValueAtTime(0.6, ctx.currentTime + start);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+              osc.start(ctx.currentTime + start);
+              osc.stop(ctx.currentTime + start + duration + 0.05);
+            };
+            playBeep(880, 0, 0.3);
+            playBeep(660, 0.4, 0.3);
+            playBeep(880, 0.8, 0.3);
+            playBeep(660, 1.2, 0.3);
+          } catch (e) { /* audio blocked */ }
+
+          // Show a persistent red alert toast
+          const alertType = newAlert.type;
+          const msg = newAlert.message || `Emergency from ${matchedPatient.name}`;
+          toast.error(`🚨 ${msg}`, {
+            duration: 15000,
+            id: `patient-alert-${newAlert.id}`,
+          });
+
+          // Add to local alerts list
+          setAlerts(prev => [{
+            id: newAlert.id,
+            patientId: newAlert.patient_id,
+            patientName: matchedPatient.name,
+            type: newAlert.type,
+            message: newAlert.message,
+            timestamp: newAlert.created_at,
+            acknowledged: false,
+          }, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => { (supabase as any).removeChannel(channel); };
+  }, []);
+
+  // Keep patientsRef in sync
+  useEffect(() => { patientsRef.current = patients; }, [patients]);
 
   const fetchData = async () => {
     setLoading(true);
