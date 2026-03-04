@@ -29,14 +29,12 @@ const navByRole: Record<UserRole, NavItem[]> = {
   ],
   nurse: [
     { label: 'Dashboard', path: '/nurse', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { label: 'Patients', path: '/nurse/patients', icon: <Users className="w-5 h-5" /> },
-    { label: 'Vitals Entry', path: '/nurse/vitals', icon: <Activity className="w-5 h-5" /> },
-    { label: 'Observations', path: '/nurse/observations', icon: <ClipboardList className="w-5 h-5" /> },
   ],
   admin: [
     { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
     { label: 'New Admission', path: '/admin/admit', icon: <UserPlus className="w-5 h-5" /> },
     { label: 'All Patients', path: '/admin/patients', icon: <Users className="w-5 h-5" /> },
+    { label: 'Manage Nurses', path: '/admin/nurses', icon: <ClipboardList className="w-5 h-5" /> },
     { label: 'Appointments', path: '/admin/appointments', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings className="w-5 h-5" /> },
   ],
@@ -85,7 +83,7 @@ export default function DashboardSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name || 'User'}</div>
-            <div className="text-xs text-sidebar-foreground/50 capitalize">{user.role}</div>
+            <div className="text-xs text-sidebar-foreground/50 capitalize">{user.role}{(user as any).assignedDoctorName ? ` · Dr. ${(user as any).assignedDoctorName}` : ''}</div>
           </div>
         </div>
         <button onClick={async () => { navigate('/login', { replace: true }); await logout(); }}

@@ -88,6 +88,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifier: string, password: string, role: UserRole): Promise<boolean> => {
     setLoading(true);
     try {
+      // Custom logic for nurses
+      if (role === 'nurse') {
+        const { data: nurse, error: nurseError } = await (supabase as any)
+          .from('nurses')
+          .select('*, doctors!assigned_doctor_id(id, name)')
+          .eq('employee_id', identifier)
+          .eq('date_of_birth', password)
+          .single();
+
+        if (nurseError || !nurse) {
+          throw new Error('Invalid Employee ID or Date of Birth.');
+        }
+
+        const nurseUser = {
+          id: nurse.id,
+          name: nurse.name,
+          role: 'nurse' as UserRole,
+          idNumber: nurse.employee_id,
+          assignedDoctorId: nurse.assigned_doctor_id,
+          assignedDoctorName: (nurse.doctors as any)?.name || ''
+        };
+        setUser(nurseUser as any);
+        localStorage.setItem('curesense_patient_session', JSON.stringify(nurseUser));
+        toast.success(`Welcome, Nurse ${nurse.name}`);
+        return true;
+      }
+
       // Custom logic for patients
       if (role === 'patient') {
         const { data: patient, error: patientError } = await (supabase as any)

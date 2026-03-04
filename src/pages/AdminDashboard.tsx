@@ -421,5 +421,129 @@ export default function AdminDashboard() {
     );
   }
 
+  if (location.pathname === '/admin/nurses') {
+    const [nurses, setNurses] = React.useState<any[]>([]);
+    const [nurseLoading, setNurseLoading] = React.useState(true);
+    const [nurseForm, setNurseForm] = React.useState({ name: '', employeeId: '', dob: '', contact: '', doctorId: '' });
+    const [nurseSubmitting, setNurseSubmitting] = React.useState(false);
+    const [allDoctors, setAllDoctors] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+      const load = async () => {
+        setNurseLoading(true);
+        const { data: nData } = await (supabase as any).from('nurses').select('*, doctors!assigned_doctor_id(name)').order('name');
+        if (nData) setNurses(nData);
+        const { data: dData } = await (supabase as any).from('doctors').select('id, name').order('name');
+        if (dData) setAllDoctors(dData);
+        setNurseLoading(false);
+      };
+      load();
+    }, []);
+
+    const handleAddNurse = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!nurseForm.name || !nurseForm.employeeId || !nurseForm.dob) { toast.error('Name, Employee ID and DOB are required'); return; }
+      setNurseSubmitting(true);
+      try {
+        const { error } = await (supabase as any).from('nurses').insert({
+          name: nurseForm.name,
+          employee_id: nurseForm.employeeId,
+          date_of_birth: nurseForm.dob,
+          contact: nurseForm.contact || null,
+          assigned_doctor_id: nurseForm.doctorId || null,
+        });
+        if (error) throw error;
+        toast.success(`✅ Nurse ${nurseForm.name} added! Login: ${nurseForm.employeeId} / DOB: ${nurseForm.dob}`);
+        setNurseForm({ name: '', employeeId: '', dob: '', contact: '', doctorId: '' });
+        const { data: nData } = await (supabase as any).from('nurses').select('*, doctors!assigned_doctor_id(name)').order('name');
+        if (nData) setNurses(nData);
+      } catch (e: any) { toast.error(e.message || 'Failed to add nurse'); }
+      setNurseSubmitting(false);
+    };
+
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Add Nurse Form */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-card">
+              <div className="flex items-center gap-2 mb-5">
+                <UserPlus className="w-5 h-5 text-accent" />
+                <h3 className="font-display font-semibold text-card-foreground text-lg">Add Nurse Account</h3>
+              </div>
+              <form onSubmit={handleAddNurse} className="space-y-4">
+                <div>
+                  <Label>Full Name *</Label>
+                  <Input value={nurseForm.name} onChange={e => setNurseForm({ ...nurseForm, name: e.target.value })} placeholder="Nurse full name" className="mt-1" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Employee ID * <span className="text-muted-foreground font-normal">(login ID)</span></Label>
+                    <Input value={nurseForm.employeeId} onChange={e => setNurseForm({ ...nurseForm, employeeId: e.target.value })} placeholder="NUR001" className="mt-1" required />
+                  </div>
+                  <div>
+                    <Label>Date of Birth * <span className="text-muted-foreground font-normal">(login password)</span></Label>
+                    <Input type="date" value={nurseForm.dob} onChange={e => setNurseForm({ ...nurseForm, dob: e.target.value })} className="mt-1" required />
+                  </div>
+                </div>
+                <div>
+                  <Label>Contact Number</Label>
+                  <Input value={nurseForm.contact} onChange={e => setNurseForm({ ...nurseForm, contact: e.target.value })} placeholder="Phone number" className="mt-1" />
+                </div>
+                <div>
+                  <Label>Assign to Doctor</Label>
+                  <select className="w-full h-10 px-3 mt-1 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={nurseForm.doctorId} onChange={e => setNurseForm({ ...nurseForm, doctorId: e.target.value })}>
+                    <option value="">Select doctor (optional)</option>
+                    {allDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">
+                  🔑 <strong>Nurse Login Credentials:</strong> <br />
+                  Login ID = Employee ID · Password = Date of Birth
+                </div>
+                <Button type="submit" disabled={nurseSubmitting} className="w-full gradient-medical text-primary-foreground">
+                  {nurseSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                  {nurseSubmitting ? 'Adding...' : 'Add Nurse'}
+                </Button>
+              </form>
+            </div>
+
+            {/* Nurses List */}
+            <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-display font-semibold text-card-foreground">All Nurses ({nurses.length})</h3>
+              </div>
+              <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                {nurseLoading ? (
+                  <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-medical-blue" /></div>
+                ) : nurses.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">No nurses added yet.</div>
+                ) : nurses.map(n => (
+                  <div key={n.id} className="p-4 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
+                      {n.name?.[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-card-foreground">{n.name}</div>
+                      <div className="text-xs text-muted-foreground">ID: {n.employee_id} {n.contact && `· ${n.contact}`}</div>
+                      <div className="text-xs mt-0.5">
+                        {n.doctors?.name ? (
+                          <span className="text-accent font-medium">👨‍⚕️ Dr. {n.doctors.name}</span>
+                        ) : (
+                          <span className="text-muted-foreground">No doctor assigned</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return <DashboardLayout><AdminMain /></DashboardLayout>;
 }
