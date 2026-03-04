@@ -639,6 +639,8 @@ function DoctorMain() {
   const [appointmentCount, setAppointmentCount] = useState(0);
 
   const patientsRef = useRef<Patient[]>([]);
+  const alarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [emergencyAlert, setEmergencyAlert] = useState<{ patientName: string; message: string; admissionNo: string } | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -652,38 +654,40 @@ function DoctorMain() {
         (payload: any) => {
           const newAlert = payload.new;
           const matchedPatient = patientsRef.current.find(p => p.id === newAlert.patient_id);
-          if (!matchedPatient) return; // Not this doctor's patient
+          if (!matchedPatient) return;
 
-          // Play a beep sound using Web Audio API
-          try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const playBeep = (freq: number, start: number, duration: number) => {
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              osc.frequency.value = freq;
-              osc.type = 'sine';
-              gain.gain.setValueAtTime(0.6, ctx.currentTime + start);
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
-              osc.start(ctx.currentTime + start);
-              osc.stop(ctx.currentTime + start + duration + 0.05);
-            };
-            playBeep(880, 0, 0.3);
-            playBeep(660, 0.4, 0.3);
-            playBeep(880, 0.8, 0.3);
-            playBeep(660, 1.2, 0.3);
-          } catch (e) { /* audio blocked */ }
-
-          // Show a persistent red alert toast
-          const alertType = newAlert.type;
-          const msg = newAlert.message || `Emergency from ${matchedPatient.name}`;
-          toast.error(`🚨 ${msg}`, {
-            duration: 15000,
-            id: `patient-alert-${newAlert.id}`,
+          // Show full-screen emergency overlay
+          setEmergencyAlert({
+            patientName: matchedPatient.name,
+            admissionNo: matchedPatient.admissionNo,
+            message: newAlert.message || `Emergency from ${matchedPatient.name}!`,
           });
 
-          // Add to local alerts list
+          // Start continuous alarm using Web Audio API
+          const playAlarmCycle = () => {
+            try {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const beep = (freq: number, t: number, dur: number) => {
+                const osc = ctx.createOscillator();
+                const g = ctx.createGain();
+                osc.connect(g);
+                g.connect(ctx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'square';
+                g.gain.setValueAtTime(0.5, ctx.currentTime + t);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+                osc.start(ctx.currentTime + t);
+                osc.stop(ctx.currentTime + t + dur + 0.05);
+              };
+              beep(1047, 0.0, 0.15);
+              beep(1047, 0.2, 0.15);
+              beep(784, 0.4, 0.35);
+            } catch { /* blocked */ }
+          };
+          playAlarmCycle();
+          alarmIntervalRef.current = setInterval(playAlarmCycle, 2000);
+
+          // Add to alerts list
           setAlerts(prev => [{
             id: newAlert.id,
             patientId: newAlert.patient_id,
@@ -884,6 +888,75 @@ function DoctorMain() {
 
   return (
     <div className="space-y-6">
+
+      {/* ── FULL-SCREEN EMERGENCY ALERT OVERLAY ── */}
+      <AnimatePresence>
+        {emergencyAlert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.85)' }}
+          >
+            {/* Pulsing red background glow */}
+            <motion.div
+              animate={{ scale: [1, 1.04, 1], opacity: [0.8, 1, 0.8] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              className="absolute inset-0 bg-red-600/20"
+            />
+
+            <motion.div
+              initial={{ scale: 0.7, y: 40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.7, y: 40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="relative bg-gradient-to-br from-red-900 via-red-800 to-red-900 rounded-3xl shadow-2xl w-full max-w-lg mx-4 p-8 border-2 border-red-500"
+              style={{ boxShadow: '0 0 80px rgba(239,68,68,0.7), 0 0 200px rgba(239,68,68,0.3)' }}
+            >
+              {/* Blinking icon */}
+              <div className="flex justify-center mb-6">
+                <motion.div
+                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-24 h-24 rounded-full bg-red-500/30 border-4 border-red-400 flex items-center justify-center"
+                >
+                  <span className="text-5xl">🚨</span>
+                </motion.div>
+              </div>
+
+              <div className="text-center space-y-3">
+                <h2 className="text-3xl font-black text-white tracking-tight">EMERGENCY ALERT</h2>
+                <div className="bg-red-950/60 rounded-2xl p-4 border border-red-500/40">
+                  <p className="text-red-200 text-sm font-semibold uppercase tracking-widest mb-1">Patient</p>
+                  <p className="text-white text-2xl font-bold">{emergencyAlert.patientName}</p>
+                  <p className="text-red-300 text-sm mt-1">Admission No: {emergencyAlert.admissionNo}</p>
+                </div>
+                <div className="bg-black/40 rounded-xl p-4 border border-red-700/40">
+                  <p className="text-red-100 text-base leading-relaxed">{emergencyAlert.message}</p>
+                </div>
+                <p className="text-red-300 text-xs opacity-70">{new Date().toLocaleTimeString()}</p>
+              </div>
+
+              <button
+                onClick={() => {
+                  // Stop alarm
+                  if (alarmIntervalRef.current) {
+                    clearInterval(alarmIntervalRef.current);
+                    alarmIntervalRef.current = null;
+                  }
+                  setEmergencyAlert(null);
+                  toast.success('Alert acknowledged. Please attend to the patient immediately.');
+                }}
+                className="mt-8 w-full bg-white text-red-700 font-black text-lg py-4 rounded-2xl hover:bg-red-50 active:scale-95 transition-all shadow-lg"
+              >
+                ✅ Acknowledge &amp; Silence Alarm
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
