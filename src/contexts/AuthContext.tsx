@@ -28,24 +28,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore patient session from localStorage first (instant)
+    // Restore patient session from localStorage first (instant, no network)
     const saved = localStorage.getItem('curesense_patient_session');
     if (saved) {
-      try { setUser(JSON.parse(saved)); } catch { }
+      try {
+        setUser(JSON.parse(saved));
+        setLoading(false); // Patient: no need to wait for Supabase
+      } catch {
+        localStorage.removeItem('curesense_patient_session');
+      }
     }
 
-    // Then check Supabase session for doctors/admins/nurses
+    // Check Supabase session for doctors/admins/nurses
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
+      } catch (e) {
+        console.error('Session check failed:', e);
+      } finally {
+        setLoading(false); // Always clear loading, even on network error
       }
-      setLoading(false);
     };
 
-    checkSession();
+    if (!saved) {
+      checkSession(); // Only need Supabase check for non-patient users
+    }
 
-    // Listen for auth changes
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
