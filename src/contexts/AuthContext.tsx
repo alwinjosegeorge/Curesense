@@ -10,12 +10,14 @@ export interface User {
   role: UserRole;
   email?: string;
   idNumber?: string;
+  assignedDoctorId?: string;
+  assignedDoctorName?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
+  login: (identifier: string, password: string, role: UserRole) => Promise<boolean>;
   demoLogin: (role: UserRole, id: string) => void;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -23,177 +25,186 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const SESSION_KEY = 'curesense_session';
+
+function saveSession(u: User) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(u));
+}
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem('curesense_patient_session'); // legacy key
+}
+function loadSession(): User | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || localStorage.getItem('curesense_patient_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(loadSession); // init from localStorage instantly
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let done = false;
-    const finish = () => { if (!done) { done = true; setLoading(false); } };
+    // If we already restored a session from localStorage, no need to wait
+    if (user) { setLoading(false); return; }
 
-    // Hard timeout — if Supabase hangs for any reason, unblock after 2.5s
-    const timeout = setTimeout(finish, 2500);
-
-    // Restore patient session from localStorage (instant, no network)
-    const saved = localStorage.getItem('curesense_patient_session');
-    if (saved) {
+    // Otherwise check Supabase session for doctor/admin
+    const check = async () => {
       try {
-        setUser(JSON.parse(saved));
-        finish(); // Patient session found — no need to wait for Supabase
-      } catch {
-        localStorage.removeItem('curesense_patient_session');
-      }
-    }
-
-    // Check Supabase session for doctors/admins/nurses
-    if (!saved) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          return fetchProfile(session.user.id);
+          const u = await fetchProfile(session.user.id);
+          if (u) { setUser(u); saveSession(u); }
         }
-      }).catch(console.error).finally(finish);
-    }
+      } catch (e) {
+        console.error('Session check error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Timeout safety: never hang more than 3s
+    const t = setTimeout(() => setLoading(false), 3000);
+    check().finally(() => clearTimeout(t));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
+        clearSession();
         setUser(null);
-        localStorage.removeItem('curesense_patient_session');
-      } else if (session?.user) {
-        await fetchProfile(session.user.id);
       }
     });
 
-    return () => { clearTimeout(timeout); subscription.unsubscribe(); };
+    return () => { subscription.unsubscribe(); clearTimeout(t); };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
+  // ─── Fetch profile from DB ────────────────────────────────────────────────
+  async function fetchProfile(userId: string): Promise<User | null> {
+    const { data, error } = await (supabase as any)
       .from('profiles')
-      .select('*')
+      .select('id, user_id, full_name, role, id_number, email')
       .eq('user_id', userId)
       .single();
 
-    if (data && !error) {
-      const d = data as any;
-      setUser({
-        id: d.id,
-        name: d.full_name || 'User',
-        role: (d.role || '').toLowerCase() as UserRole,
-        idNumber: d.id_number
-      });
-    }
-  };
+    if (error || !data) return null;
 
+    return {
+      id: data.user_id || data.id,
+      name: data.full_name || 'User',
+      role: (data.role || '').toLowerCase() as UserRole,
+      idNumber: data.id_number,
+      email: data.email,
+    };
+  }
+
+  // ─── Login ────────────────────────────────────────────────────────────────
   const login = async (identifier: string, password: string, role: UserRole): Promise<boolean> => {
     try {
-      // Custom logic for nurses
+
+      // ── NURSE login (Employee ID + DOB) ──
       if (role === 'nurse') {
-        const { data: nurse, error: nurseError } = await (supabase as any)
+        const { data: nurse, error } = await (supabase as any)
           .from('nurses')
           .select('*, doctors!assigned_doctor_id(id, name)')
           .eq('employee_id', identifier)
           .eq('date_of_birth', password)
           .single();
 
-        if (nurseError || !nurse) {
-          throw new Error('Invalid Employee ID or Date of Birth.');
-        }
+        if (error || !nurse) throw new Error('Invalid Employee ID or Date of Birth.');
 
-        const nurseUser = {
+        const u: User = {
           id: nurse.id,
           name: nurse.name,
-          role: 'nurse' as UserRole,
+          role: 'nurse',
           idNumber: nurse.employee_id,
           assignedDoctorId: nurse.assigned_doctor_id,
-          assignedDoctorName: (nurse.doctors as any)?.name || ''
+          assignedDoctorName: (nurse.doctors as any)?.name || '',
         };
-        setUser(nurseUser as any);
-        localStorage.setItem('curesense_patient_session', JSON.stringify(nurseUser));
+        setUser(u);
+        saveSession(u);
         toast.success(`Welcome, Nurse ${nurse.name}`);
         return true;
       }
 
-      // Custom logic for patients
+      // ── PATIENT login (Admission No + DOB) ──
       if (role === 'patient') {
-        const { data: patient, error: patientError } = await (supabase as any)
+        const { data: patient, error } = await (supabase as any)
           .from('patients')
-          .select('*')
+          .select('id, name, admission_no, date_of_birth')
           .eq('admission_no', identifier)
           .eq('date_of_birth', password)
           .single();
 
-        if (patientError || !patient) {
-          throw new Error('Invalid Admission Number or Date of Birth.');
-        }
+        if (error || !patient) throw new Error('Invalid Admission Number or Date of Birth.');
 
-        const patientUser = { id: patient.id, name: patient.name, role: 'patient' as UserRole, idNumber: patient.admission_no };
-        setUser(patientUser);
-        // Persist patient session so refresh works without clearing storage
-        localStorage.setItem('curesense_patient_session', JSON.stringify(patientUser));
+        const u: User = {
+          id: patient.id,
+          name: patient.name,
+          role: 'patient',
+          idNumber: patient.admission_no,
+        };
+        setUser(u);
+        saveSession(u);
         toast.success(`Welcome, ${patient.name}`);
         return true;
       }
 
+      // ── DOCTOR / ADMIN login (ID or email + password via Supabase Auth) ──
       let email = identifier;
 
-      if (identifier.includes('@')) {
-        // Email entered directly — look up profile by email to verify role
-        const { data: profile, error: lookupError } = await (supabase as any)
-          .from('profiles')
-          .select('email, role')
-          .eq('email', identifier)
-          .single();
-
-        if (!lookupError && profile?.role && profile.role !== role) {
-          throw new Error(`This account is a ${profile.role} account, not ${role}.`);
-        }
-        // If profile not found, still try to sign in — auth will validate
-      } else {
-        // ID entered (e.g. DOC001, ADM001) — look up email + role together
-        const { data: profile, error: lookupError } = await (supabase as any)
+      if (!identifier.includes('@')) {
+        // Lookup email from ID number (e.g. DOC001 → their @curesense.ai email)
+        const { data: profile, error } = await (supabase as any)
           .from('profiles')
           .select('email, role')
           .eq('id_number', identifier)
           .single();
 
-        if (lookupError || !profile?.email) {
-          throw new Error('Account not found. Check your ID.');
-        }
-        if (profile.role !== role) {
-          throw new Error(`This ID belongs to a ${profile.role} account, not ${role}.`);
-        }
+        if (error || !profile?.email) throw new Error('ID not found. Please check your Doctor/Admin ID.');
+        if (profile.role !== role) throw new Error(`ID "${identifier}" is a ${profile.role} account, not ${role}.`);
         email = profile.email;
       }
 
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      // Sign in to Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
 
+      // IMMEDIATELY fetch profile and set user (don't rely on onAuthStateChange timing)
+      const u = await fetchProfile(authData.user.id);
+      if (!u) throw new Error('Profile not found. Contact admin.');
+
+      setUser(u);
+      saveSession(u);
+      toast.success(`Welcome, ${u.name}`);
       return true;
+
     } catch (e: any) {
-      toast.error(e.message || 'Login failed');
+      toast.error(e.message || 'Login failed. Check your credentials.');
       return false;
     }
   };
 
+  // ─── Demo Login ───────────────────────────────────────────────────────────
   const demoLogin = (role: UserRole, id: string) => {
-    const demoUser: User = {
+    const u: User = {
       id: `demo-${id}`,
       name: role === 'doctor' ? `Dr. ${id}` : id,
       role,
-      idNumber: id
+      idNumber: id,
     };
-    setUser(demoUser);
+    setUser(u);
+    saveSession(u);
     toast.success('Signed in with Demo Mode');
   };
 
+  // ─── Logout ───────────────────────────────────────────────────────────────
   const logout = async () => {
-    // Clear patient session from localStorage immediately
-    localStorage.removeItem('curesense_patient_session');
+    clearSession();
     setUser(null);
     toast.info('Signed out');
-    // Sign out from Supabase in background (non-blocking)
-    supabase.auth.signOut();
+    supabase.auth.signOut().catch(() => { }); // non-blocking
   };
 
   return (

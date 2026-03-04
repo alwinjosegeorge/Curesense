@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,18 +23,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
   const { login, demoLogin, user } = useAuth();
   const navigate = useNavigate();
-
-  // Navigate AFTER user state actually updates (avoids ProtectedRoute race condition)
-  useEffect(() => {
-    if (user && pendingRole) {
-      setPendingRole(null);
-      setLoading(false);
-      navigate(`/${user.role}`);
-    }
-  }, [user, pendingRole, navigate]);
 
   const activeRole = roles.find(r => r.role === selectedRole);
 
@@ -48,21 +38,16 @@ export default function LoginPage() {
         return;
       }
       setLoading(true);
-      setPendingRole(selectedRole); // signals useEffect to navigate once user is set
       const success = await login(loginId, password, selectedRole);
-      if (!success) {
-        setLoading(false);
-        setPendingRole(null);
-      }
-      // If success: useEffect will handle navigation once user state updates
+      setLoading(false);
+      if (success) navigate(`/${selectedRole}`);
     } else {
       if (!loginId) {
         toast.error('Please enter your ID');
         return;
       }
-      setPendingRole(selectedRole);
       demoLogin(selectedRole, loginId);
-      // useEffect will navigate once user is set
+      navigate(`/${selectedRole}`);
     }
   };
 
