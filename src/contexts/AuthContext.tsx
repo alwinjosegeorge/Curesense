@@ -28,7 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
+    // Restore patient session from localStorage first (instant)
+    const saved = localStorage.getItem('curesense_patient_session');
+    if (saved) {
+      try { setUser(JSON.parse(saved)); } catch { }
+    }
+
+    // Then check Supabase session for doctors/admins/nurses
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -41,10 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
+      if (event === 'SIGNED_OUT') {
         setUser(null);
+        localStorage.removeItem('curesense_patient_session');
+      } else if (session?.user) {
+        await fetchProfile(session.user.id);
       }
     });
 
@@ -85,13 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error('Invalid Admission Number or Date of Birth.');
         }
 
-        setUser({
-          id: patient.id,
-          name: patient.name,
-          role: 'patient',
-          idNumber: patient.admission_no
-        });
-        toast.success(`Welcome back, ${patient.name}`);
+        const patientUser = { id: patient.id, name: patient.name, role: 'patient' as UserRole, idNumber: patient.admission_no };
+        setUser(patientUser);
+        // Persist patient session so refresh works without clearing storage
+        localStorage.setItem('curesense_patient_session', JSON.stringify(patientUser));
+        toast.success(`Welcome, ${patient.name}`);
         return true;
       }
 
@@ -143,14 +148,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    // Clear patient session from localStorage immediately
+    localStorage.removeItem('curesense_patient_session');
     setUser(null);
     toast.info('Signed out');
+    // Sign out from Supabase in background (non-blocking)
+    supabase.auth.signOut();
   };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, demoLogin, logout, isAuthenticated: !!user }}>
-      {!loading && children}
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
+              <svg className="w-6 h-6 text-white animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">Loading CureSense...</p>
+          </div>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 }
