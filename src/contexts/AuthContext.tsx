@@ -86,7 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (identifier: string, password: string, role: UserRole): Promise<boolean> => {
-    setLoading(true);
     try {
       // Custom logic for nurses
       if (role === 'nurse') {
@@ -174,8 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       toast.error(e.message || 'Login failed');
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
