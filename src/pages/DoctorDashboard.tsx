@@ -770,22 +770,27 @@ function DoctorMain() {
     setAiLoading(true);
     setAiResult(null);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-treatment`, {
+      const SUPABASE_URL = 'https://weafydetjbnyuxfrxovk.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlYWZ5ZGV0amJueXV4ZnJ4b3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MzA2MDcsImV4cCI6MjA4ODEwNjYwN30.e6JqupZSTxyB8NZr7v6VU74-6P4FbHU0NNPACkdJKY8';
+      const latestVitals = selectedPatient.vitals.length > 0 ? selectedPatient.vitals[selectedPatient.vitals.length - 1] : {};
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-treatment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({
           type: 'risk_analysis',
+          department: doctorDept,
           patientData: {
             name: selectedPatient.name,
             age: selectedPatient.age,
             gender: selectedPatient.gender,
             symptoms: selectedPatient.symptoms,
             diagnosis: selectedPatient.diagnosis,
-            vitals: selectedPatient.vitals[selectedPatient.vitals.length - 1],
-            prescriptions: selectedPatient.prescriptions.filter(rx => rx.status === 'Active'),
+            vitals: latestVitals,
+            allVitals: selectedPatient.vitals.slice(-5),
+            prescriptions: selectedPatient.prescriptions.filter((rx: any) => rx.status === 'Active'),
             labReports: selectedPatient.labReports,
             riskScores: selectedPatient.riskScores,
           },
@@ -793,9 +798,15 @@ function DoctorMain() {
       });
       const data = await response.json();
       if (data.error) toast.error(data.error);
-      else { setAiResult(data.result); toast.success('AI analysis complete'); }
-    } catch { toast.error('Failed to run AI analysis'); }
-    finally { setAiLoading(false); }
+      else {
+        setAiResult(data.result);
+        toast.success(`AI analysis complete${data.source === 'gemini' ? ' (Gemini AI)' : ' (Clinical Rules Engine)'}`);
+      }
+    } catch (e: any) {
+      toast.error('Failed to reach AI service. Check your connection.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   if (loading) return (
@@ -1016,30 +1027,63 @@ function DoctorMain() {
                   </TabsContent>
 
                   {/* AI Risk */}
-                  <TabsContent value="ai" className="mt-4">
-                    <RiskPanel scores={selectedPatient.riskScores} />
-                    <div className="mt-4">
-                      <Button onClick={runAiAnalysis} disabled={aiLoading} className="gradient-medical text-primary-foreground hover:opacity-90">
-                        {aiLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Brain className="w-4 h-4 mr-2" />}
-                        {aiLoading ? 'Analyzing Patient Data...' : 'Run AI Risk Analysis'}
+                  <TabsContent value="ai" className="mt-4 space-y-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Button onClick={runAiAnalysis} disabled={aiLoading} className="gradient-medical text-primary-foreground hover:opacity-90 gap-2">
+                        {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                        {aiLoading ? 'Analysing Patient Data...' : '🧠 Run AI Risk Analysis'}
                       </Button>
-                      <p className="text-xs text-muted-foreground mt-2">Analyzes vitals, prescriptions, and lab results to generate risk recommendations.</p>
+                      {aiResult && <PDFGenerator patientName={selectedPatient.name} type="Case Summary" data={selectedPatient} />}
                     </div>
-                    {aiResult && (
-                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                        className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-bold text-blue-700 flex items-center gap-2">
-                            <Brain className="w-4 h-4" /> AI Analysis Result
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-green-600 border-green-300">Analysis Complete</Badge>
-                            <PDFGenerator patientName={selectedPatient.name} type="Case Summary" data={selectedPatient} />
-                          </div>
+                    <p className="text-xs text-muted-foreground">
+                      Analyses all vitals, active prescriptions, lab results and diagnosis using AI to generate a clinical risk report.
+                    </p>
+
+                    {aiLoading && (
+                      <div className="flex flex-col items-center justify-center py-10 gap-3">
+                        <div className="w-12 h-12 rounded-full gradient-medical flex items-center justify-center animate-pulse">
+                          <Brain className="w-6 h-6 text-white" />
                         </div>
-                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{aiResult}</p>
+                        <p className="text-sm text-muted-foreground animate-pulse">Processing clinical data...</p>
+                      </div>
+                    )}
+
+                    {aiResult && !aiLoading && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                        {/* Parse risk level line */}
+                        {(() => {
+                          const lines = aiResult.split('\n').filter(l => l.trim());
+                          const riskLine = lines.find(l => l.toLowerCase().includes('risk level') || l.match(/🔴|🟠|🟡|🟢/));
+                          const isHigh = riskLine?.toLowerCase().includes('critical') || riskLine?.includes('🔴');
+                          const isMod = riskLine?.toLowerCase().includes('high') || riskLine?.includes('🟠');
+                          const riskColor = isHigh ? 'bg-red-50 border-red-200 text-red-800' : isMod ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-green-50 border-green-200 text-green-800';
+                          return (
+                            <>
+                              {riskLine && (
+                                <div className={`p-3 rounded-xl border font-semibold text-sm ${riskColor}`}>
+                                  {riskLine.replace(/\*\*/g, '')}
+                                </div>
+                              )}
+                              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <Brain className="w-4 h-4 text-accent" />
+                                  <span className="text-sm font-bold text-card-foreground">AI Clinical Analysis</span>
+                                  <Badge variant="outline" className="text-green-600 border-green-300 text-[10px]">Analysis Complete</Badge>
+                                </div>
+                                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none">
+                                  {aiResult.replace(/\*\*/g, '').replace(/^[🔴🟠🟡🟢].*\n/, '')}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </motion.div>
                     )}
+
+                    {/* Static risk scores still shown below */}
+                    <div className="mt-2">
+                      <RiskPanel scores={selectedPatient.riskScores} />
+                    </div>
                   </TabsContent>
 
                   {/* Notes */}
