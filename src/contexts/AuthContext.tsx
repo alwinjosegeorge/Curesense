@@ -138,23 +138,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let email = identifier;
 
-      // Single profiles lookup: get both email AND role together (was 2 separate lookups before)
-      const { data: profile, error: lookupError } = await (supabase as any)
-        .from('profiles')
-        .select('email, role')
-        .eq('id_number', identifier)
-        .single();
+      if (identifier.includes('@')) {
+        // Email entered directly — look up profile by email to verify role
+        const { data: profile, error: lookupError } = await (supabase as any)
+          .from('profiles')
+          .select('email, role')
+          .eq('email', identifier)
+          .single();
 
-      if (lookupError || !profile?.email) {
-        throw new Error('Account not found. Check your ID.');
+        if (!lookupError && profile?.role && profile.role !== role) {
+          throw new Error(`This account is a ${profile.role} account, not ${role}.`);
+        }
+        // If profile not found, still try to sign in — auth will validate
+      } else {
+        // ID entered (e.g. DOC001, ADM001) — look up email + role together
+        const { data: profile, error: lookupError } = await (supabase as any)
+          .from('profiles')
+          .select('email, role')
+          .eq('id_number', identifier)
+          .single();
+
+        if (lookupError || !profile?.email) {
+          throw new Error('Account not found. Check your ID.');
+        }
+        if (profile.role !== role) {
+          throw new Error(`This ID belongs to a ${profile.role} account, not ${role}.`);
+        }
+        email = profile.email;
       }
-
-      // Role mismatch — fail fast before even attempting auth
-      if (profile.role !== role) {
-        throw new Error(`This ID belongs to a ${profile.role} account, not ${role}.`);
-      }
-
-      email = profile.email;
 
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
